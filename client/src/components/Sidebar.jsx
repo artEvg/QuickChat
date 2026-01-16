@@ -21,10 +21,13 @@ const Sidebar = () => {
 
 	const navigate = useNavigate()
 
-	// Фильтруем пользователей: показываем только тех, с кем есть переписка
-	const usersWithChat = users.filter(
-		user => user._id !== authUser?._id // Исключаем самого себя
-	)
+	// ✅ ИСПРАВЛЕНО: Показываем ТОЛЬКО тех, с кем есть переписка (непрочитанные или выбранный)
+	const usersWithChat = users.filter(user => {
+		if (user._id === authUser?._id) return false // Исключаем себя
+
+		// Показываем если есть непрочитанные СЮДА или это выбранный пользователь
+		return unseenMessages[user._id] > 0 || selectedUser?._id === user._id
+	})
 
 	const filteredUsers = input
 		? usersWithChat.filter(user =>
@@ -96,13 +99,13 @@ const Sidebar = () => {
 			</div>
 			<div className='flex flex-col'>
 				{filteredUsers.length > 0 ? (
-					filteredUsers.map((user, index) => (
+					filteredUsers.map(user => (
 						<div
 							onClick={() => {
 								setSelectedUser(user)
 								setUnseenMessages(prev => ({ ...prev, [user._id]: 0 }))
 							}}
-							key={user._id || index} // Используем _id вместо index
+							key={user._id} // ✅ Фиксим key - используем только _id
 							className={`relative flex items-center gap-2 p-2 pl-4 rounded cursor-pointer max-sm:text-sm ${
 								selectedUser?._id === user._id ? "bg-[#282142]/50" : ""
 							}`}>
