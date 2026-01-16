@@ -1,12 +1,10 @@
 import { useContext, useState, useEffect, useMemo, useCallback } from "react"
 import assets from "../assets/assets.js"
 import { useNavigate } from "react-router-dom"
-// ✅ ИСПРАВЛЕНО: hooks вместо прямого импорта
-import { useAuth } from "../../context/AuthContext.jsx"
-import { useChat } from "../../context/ChatContext.jsx" // ✅ Предполагается что есть Chat hook
+import { AuthContext } from "../../context/AuthContext"
+import { ChatContext } from "../../context/ChatContext"
 
 const Sidebar = () => {
-	// ✅ ИСПРАВЛЕНО: hooks вместо useContext
 	const {
 		getUsers,
 		users,
@@ -15,9 +13,9 @@ const Sidebar = () => {
 		unseenMessages,
 		setUnseenMessages,
 		messages,
-	} = useChat()
+	} = useContext(ChatContext)
 
-	const { logout, user: authUser } = useAuth()
+	const { logout, authUser } = useContext(AuthContext)
 
 	const [input, setInput] = useState("")
 	const [showMenu, setShowMenu] = useState(false)

@@ -1,11 +1,10 @@
 import { useContext, useEffect, useState } from "react"
 import assets, { imagesDummyData } from "./../assets/assets.js"
-import { useChat } from "../../context/ChatContext.jsx"
-import { useAuth } from "../../context/AuthContext.jsx"
-
+import { ChatContext } from "./../../context/ChatContext"
+import { AuthContext } from "../../context/AuthContext.jsx"
 const RightSidebar = () => {
-	const { selectedUser, messages } = useChat()
-	const { logout, user, onlineUsers } = useAuth()
+	const { selectedUser, messages } = useContext(ChatContext)
+	const { logout, onlineUsers } = useContext(AuthContext)
 	const [msgImages, setMsgImages] = useState([])
 
 	// Получить все фото в чате
