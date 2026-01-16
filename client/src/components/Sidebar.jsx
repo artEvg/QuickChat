@@ -14,24 +14,26 @@ const Sidebar = () => {
 		setUnseenMessages,
 	} = useContext(ChatContext)
 
-	const { logout, onlineUsers, authUser } = useContext(AuthContext)
+	const { logout, onlineUsers = [], authUser } = useContext(AuthContext)
 
 	const [input, setInput] = useState("")
 	const [showMenu, setShowMenu] = useState(false)
-	const [recentChats, setRecentChats] = useState(new Set())
+	const [chatHistory, setChatHistory] = useState(new Set()) // История чатов
 
 	const navigate = useNavigate()
 
+	// ✅ ПРОСТАЯ ЛОГИКА: непрочитанные + история + выбранный
 	const usersWithChat = useMemo(() => {
 		return users.filter(user => {
-			if (user._id === authUser?._id) return false
-			const hasUnseen = unseenMessages[user._id] > 0
-			const hasInteraction = recentChats.has(user._id)
-			const isCurrentChat = selectedUser?._id === user._id
+			if (!user._id || user._id === authUser?._id) return false
 
-			return hasUnseen || hasInteraction || isCurrentChat
+			const hasUnseen = unseenMessages[user._id] > 0
+			const hasHistory = chatHistory.has(user._id)
+			const isSelected = selectedUser?._id === user._id
+
+			return hasUnseen || hasHistory || isSelected
 		})
-	}, [users, unseenMessages, recentChats, selectedUser, authUser._id])
+	}, [users, unseenMessages, chatHistory, selectedUser, authUser])
 
 	const allUsersForSearch = useMemo(
 		() => users.filter(user => user._id !== authUser?._id),
@@ -43,51 +45,54 @@ const Sidebar = () => {
 
 		const searchTerm = input.toLowerCase()
 		const chatMatches = usersWithChat.filter(user =>
-			user.fullName.toLowerCase().includes(searchTerm)
+			user.fullName?.toLowerCase().includes(searchTerm)
 		)
 		const otherMatches = allUsersForSearch
 			.filter(user => !usersWithChat.some(u => u._id === user._id))
-			.filter(user => user.fullName.toLowerCase().includes(searchTerm))
+			.filter(user => user.fullName?.toLowerCase().includes(searchTerm))
 
 		return [...chatMatches, ...otherMatches]
 	}, [input, usersWithChat, allUsersForSearch])
 
-	const handleUserInteraction = useCallback(
+	// ✅ Добавляем в историю при клике
+	const handleSelectUser = useCallback(
 		user => {
 			setSelectedUser(user)
 			setUnseenMessages(prev => ({ ...prev, [user._id]: 0 }))
-			setRecentChats(prev => new Set([...prev, user._id]))
+			setChatHistory(prev => new Set([...prev, user._id])) // ✅ Запоминаем
 			if (input) setInput("")
 		},
-		[setSelectedUser, setUnseenMessages, input]
+		[input, setSelectedUser, setUnseenMessages]
 	)
+
+	// ✅ Авто-добавление при смене selectedUser
 	useEffect(() => {
-		if (selectedUser && !recentChats.has(selectedUser._id)) {
-			setRecentChats(prev => new Set([...prev, selectedUser._id]))
+		if (selectedUser?._id && !chatHistory.has(selectedUser._id)) {
+			setChatHistory(prev => new Set([...prev, selectedUser._id]))
 		}
-	}, [selectedUser, recentChats])
+	}, [selectedUser, chatHistory])
 
 	useEffect(() => {
 		getUsers()
-	}, [onlineUsers, getUsers])
+	}, []) // ✅ Убираем onlineUsers - socket не работает
 
 	return (
 		<div
 			className={`bg-[#8185B2]/10 h-full p-5 rounded-r-xl overflow-y-scroll text-white ${
 				selectedUser ? "max-md:hidden" : ""
 			}`}>
-			{/* Header */}
+			{/* Header + поиск - без изменений */}
 			<div className='pb-5'>
 				<div className='flex justify-between items-center'>
 					<img
 						src={assets.logo}
-						alt='logo image'
+						alt='logo'
 						className='max-w-40 cursor-pointer'
 					/>
 					<div className='relative py-2'>
 						<img
 							src={assets.menu_icon}
-							alt='menu icon'
+							alt='menu'
 							className='max-h-5 cursor-pointer'
 							onClick={() => setShowMenu(prev => !prev)}
 						/>
@@ -114,7 +119,6 @@ const Sidebar = () => {
 						)}
 					</div>
 				</div>
-
 				<div className='bg-[#282142] rounded-full flex items-center gap-2 py-3 px-4 mt-5'>
 					<img
 						src={assets.search_icon}
@@ -124,7 +128,6 @@ const Sidebar = () => {
 					<input
 						value={input}
 						onChange={e => setInput(e.target.value)}
-						type='text'
 						className='bg-transparent border-none outline-none text-white text-sm placeholder-[#c8c8c8] flex-1'
 						placeholder='🔍 Найти пользователя...'
 					/>
@@ -137,15 +140,15 @@ const Sidebar = () => {
 						const hasChat = usersWithChat.some(u => u._id === user._id)
 						return (
 							<div
-								onClick={() => handleUserInteraction(user)}
 								key={user._id}
-								className={`relative flex items-center gap-2 p-2 pl-4 rounded cursor-pointer max-sm:text-sm transition-all duration-200 hover:bg-[#282142]/30 ${
+								onClick={() => handleSelectUser(user)}
+								className={`relative flex items-center gap-2 p-2 pl-4 rounded cursor-pointer max-sm:text-sm transition-all hover:bg-[#282142]/30 ${
 									selectedUser?._id === user._id ? "bg-[#282142]/50" : ""
 								}`}>
 								<img
 									src={user?.profilePic || assets.avatar_icon}
-									alt='user image'
-									className='w-[35px] aspect-[1/1] rounded-full ring-1 ring-transparent hover:ring-violet-500/50 transition-all'
+									alt='user'
+									className='w-[35px] aspect-[1/1] rounded-full ring-1 ring-transparent hover:ring-violet-500/50'
 								/>
 								<div className='flex flex-col leading-5 flex-1'>
 									<p className='font-medium'>{user.fullName}</p>
@@ -165,13 +168,11 @@ const Sidebar = () => {
 									</div>
 								</div>
 								{unseenMessages[user._id] > 0 && (
-									<div className='flex items-center gap-1'>
-										<p className='text-xs h-5 w-5 flex justify-center items-center rounded-full bg-violet-500/50'>
-											{unseenMessages[user._id] > 99
-												? "99+"
-												: unseenMessages[user._id]}
-										</p>
-									</div>
+									<p className='text-xs h-5 w-5 flex justify-center items-center rounded-full bg-violet-500/50'>
+										{unseenMessages[user._id] > 99
+											? "99+"
+											: unseenMessages[user._id]}
+									</p>
 								)}
 							</div>
 						)
