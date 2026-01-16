@@ -12,43 +12,60 @@ const Sidebar = () => {
 		setSelectedUser,
 		unseenMessages,
 		setUnseenMessages,
+		chats, // ✅ Добавляем chats из контекста
 	} = useContext(ChatContext)
 
 	const { logout, onlineUsers, authUser } = useContext(AuthContext)
 
 	const [input, setInput] = useState("")
 	const [showMenu, setShowMenu] = useState(false)
+	const [searchMode, setSearchMode] = useState(false)
 
 	const navigate = useNavigate()
 
-	// ✅ Фильтр по переписке
-	const usersWithChat = users.filter(user => {
-		if (user._id === authUser?._id) return false
-		return unseenMessages[user._id] > 0 || selectedUser?._id === user._id
-	})
+	// ✅ 1. Пользователи с перепиской (из chats или по непрочитанным)
+	const usersWithChat = useMemo(() => {
+		const chatUserIds =
+			chats?.map(chat => chat.members?.find(id => id !== authUser?._id)) || []
 
-	// ✅ Поиск по ВСЕМ пользователям + приоритет перепискам
-	const allUsersForSearch = users.filter(user => user._id !== authUser?._id)
+		return users.filter(user => {
+			if (user._id === authUser?._id) return false
 
-	// ✅ Логика поиска: сначала чаты, потом все пользователи
+			// Проверяем: есть ли чат ИЛИ непрочитанные ИЛИ выбранный
+			const hasChat = chatUserIds.includes(user._id)
+			const hasUnseen = unseenMessages[user._id] > 0
+			const isSelected = selectedUser?._id === user._id
+
+			return hasChat || hasUnseen || isSelected
+		})
+	}, [users, chats, unseenMessages, selectedUser, authUser])
+
+	// ✅ 2. Все пользователи для поиска (исключая себя)
+	const allUsersForSearch = useMemo(
+		() => users.filter(user => user._id !== authUser?._id),
+		[users, authUser]
+	)
+
+	// ✅ 3. Логика поиска
 	const filteredUsers = useMemo(() => {
 		if (!input.trim()) {
+			setSearchMode(false)
 			return usersWithChat
 		}
 
+		setSearchMode(true)
 		const searchTerm = input.toLowerCase()
 
-		// 1. Сначала ищем среди пользователей с перепиской
+		// Сначала пользователи с перепиской
 		const chatMatches = usersWithChat.filter(user =>
 			user.fullName.toLowerCase().includes(searchTerm)
 		)
 
-		// 2. Потом ищем среди всех остальных пользователей
+		// Потом все остальные
 		const otherMatches = allUsersForSearch
-			.filter(user => !usersWithChat.includes(user))
+			.filter(user => !usersWithChat.some(u => u._id === user._id))
 			.filter(user => user.fullName.toLowerCase().includes(searchTerm))
 
-		// Объединяем: чаты + новые пользователи
 		return [...chatMatches, ...otherMatches]
 	}, [input, usersWithChat, allUsersForSearch])
 
@@ -110,7 +127,11 @@ const Sidebar = () => {
 						onChange={e => setInput(e.target.value)}
 						type='text'
 						className='bg-transparent border-none outline-none text-white text-sm placeholder-[#c8c8c8] flex-1'
-						placeholder='🔍 Найти пользователя...'
+						placeholder={
+							searchMode
+								? "🔍 Ищите пользователей..."
+								: "🔍 Найти пользователя..."
+						}
 					/>
 				</div>
 			</div>
@@ -125,7 +146,6 @@ const Sidebar = () => {
 								onClick={() => {
 									setSelectedUser(user)
 									setUnseenMessages(prev => ({ ...prev, [user._id]: 0 }))
-									// Очищаем поиск при выборе пользователя
 									if (input) setInput("")
 								}}
 								key={user._id}
