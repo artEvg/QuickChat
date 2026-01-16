@@ -1,15 +1,16 @@
 import { useEffect, useRef, useState, useCallback } from "react"
 import assets from "../assets/assets.js"
 import { formatMessageTime } from "../lib/utils.js"
-import { useContext } from "react"
-import { ChatContext } from "../../context/ChatContext.jsx"
-import { AuthContext } from "../../context/AuthContext.jsx"
+import { useAuth } from "../context/AuthContext.jsx" // ✅ Добавлен
+import { useChat } from "../context/ChatContext.jsx" // ✅ Добавлен
 import toast from "react-hot-toast"
 
 const ChatContainer = () => {
+	// ✅ ИСПРАВЛЕНО: hooks вместо useContext
 	const { messages, selectedUser, setSelectedUser, sendMessage, getMessages } =
-		useContext(ChatContext)
-	const { authUser } = useContext(AuthContext)
+		useChat()
+	const { user: authUser } = useAuth() // ✅ user: authUser
+
 	const scrollEnd = useRef()
 	const [input, setInput] = useState("")
 
@@ -263,7 +264,7 @@ const ChatContainer = () => {
 						<div
 							key={msgId}
 							className={`flex w-full items-end gap-2 justify-end ${
-								msg.senderId !== authUser._id && "flex-row-reverse"
+								msg.senderId !== authUser?._id && "flex-row-reverse" // ✅ authUser?._id
 							}`}>
 							{msg.audio ? (
 								// 🎵 НОВЫЙ ЛЕЙАУТ - кнопка справа на одной линии
@@ -370,7 +371,7 @@ const ChatContainer = () => {
 							) : (
 								<p
 									className={`p-2 w-[200px] md:text-sm font-light rounded-lg mb-8 break-all bg-violet-500/30 text-white ${
-										msg.senderId !== authUser._id
+										msg.senderId !== authUser?._id
 											? "rounded-br-none"
 											: "rounded-bl-none"
 									}`}>
@@ -381,7 +382,7 @@ const ChatContainer = () => {
 								<img
 									className='w-7 rounded-full'
 									src={
-										msg.senderId === authUser._id
+										msg.senderId === authUser?._id
 											? authUser?.profilePic || assets.avatar_icon
 											: selectedUser.profilePic || assets.avatar_icon
 									}
