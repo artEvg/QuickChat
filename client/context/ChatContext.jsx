@@ -5,10 +5,18 @@ import {
 	useEffect,
 	useCallback,
 } from "react"
-import { useAuth } from "../context/AuthContext.jsx" // ✅ Правильный импорт
+import { useAuth } from "../context/AuthContext.jsx"
 import toast from "react-hot-toast"
 
 export const ChatContext = createContext()
+
+export const useChat = () => {
+	const context = useContext(ChatContext)
+	if (!context) {
+		throw new Error("useChat must be used within ChatProvider")
+	}
+	return context
+}
 
 export const ChatProvider = ({ children }) => {
 	const [messages, setMessages] = useState([])
