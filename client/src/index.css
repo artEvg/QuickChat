@@ -11,3 +11,24 @@
 ::-webkit-scrollbar {
 	display: none;
 }
+
+@keyframes wave1 {
+  0%, 100% { transform: scaleY(1); }
+  50% { transform: scaleY(0.3); }
+}
+@keyframes wave2 {
+  0%, 100% { transform: scaleY(1); }
+  50% { transform: scaleY(1.8); }
+}
+@keyframes wave3 {
+  0%, 100% { transform: scaleY(1); }
+  50% { transform: scaleY(1.2); }
+}
+@keyframes wave4 {
+  0%, 100% { transform: scaleY(1); }
+  50% { transform: scaleY(2.2); }
+}
+.animate-wave1 { animation: wave1 1.2s ease-in-out infinite; }
+.animate-wave2 { animation: wave2 1.2s ease-in-out infinite; }
+.animate-wave3 { animation: wave3 1.2s ease-in-out infinite; }
+.animate-wave4 { animation: wave4 1.2s ease-in-out infinite; }

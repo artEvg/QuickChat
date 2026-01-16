@@ -18,6 +18,7 @@ const ChatContainer = () => {
 	const chunks = useRef([])
 
 	const audioRefs = useRef({})
+	const [currentTimes, setCurrentTimes] = useState({})
 
 	const pollMessages = useCallback(async () => {
 		if (selectedUser?._id) {
@@ -64,12 +65,18 @@ const ChatContainer = () => {
 					type: "audio/webm;codecs=opus",
 				})
 
+				const audioContext = new (window.AudioContext ||
+					window.AudioContext)()
+				const arrayBuffer = await audioBlob.arrayBuffer()
+				const audioBuffer = await audioContext.decodeAudioData(arrayBuffer)
+				const duration = Math.round(audioBuffer.duration)
+
 				const reader = new FileReader()
 				reader.onloadend = async () => {
 					try {
 						await sendMessage({
 							audio: reader.result,
-							audioDuration: Math.round(audioBlob.size / 500),
+							audioDuration: duration,
 						})
 					} catch (error) {
 						toast.error("Ошибка отправки аудио")
@@ -78,6 +85,7 @@ const ChatContainer = () => {
 				reader.readAsDataURL(audioBlob)
 
 				stream.getTracks().forEach(track => track.stop())
+				audioContext.close()
 			}
 
 			recorder.start(250)
@@ -96,6 +104,7 @@ const ChatContainer = () => {
 		}
 	}
 
+	// 🎵 Аудио контролы
 	const togglePlayPause = msgId => {
 		const audio = audioRefs.current[msgId]
 		if (!audio) return
@@ -107,22 +116,34 @@ const ChatContainer = () => {
 		}
 	}
 
-	const rewind = (msgId, seconds) => {
-		const audio = audioRefs.current[msgId]
-		if (audio) {
-			audio.currentTime = Math.max(
-				0,
-				Math.min(audio.duration || 0, (audio.currentTime || 0) + seconds)
-			)
-		}
-	}
-
 	const formatTime = seconds => {
 		if (!seconds) return "0:00"
 		const mins = Math.floor(seconds / 60)
 		const secs = Math.floor(seconds % 60)
 		return `${mins}:${secs.toString().padStart(2, "0")}`
 	}
+	useEffect(() => {
+		const intervals = {}
+
+		messages.forEach(msg => {
+			const msgId = msg._id || `msg-${messages.indexOf(msg)}`
+			if (msg.audio && audioRefs.current[msgId]) {
+				intervals[msgId] = setInterval(() => {
+					const audio = audioRefs.current[msgId]
+					if (audio) {
+						setCurrentTimes(prev => ({
+							...prev,
+							[msgId]: audio.currentTime,
+						}))
+					}
+				}, 500)
+			}
+		})
+
+		return () => {
+			Object.values(intervals).forEach(clearInterval)
+		}
+	}, [messages])
 
 	const handleSendMessage = async e => {
 		e.preventDefault()
@@ -193,6 +214,11 @@ const ChatContainer = () => {
 			<div className='flex flex-col items-center h-[calc(100%-120px)] overflow-y-scroll p-3 pb-6'>
 				{messages.map((msg, index) => {
 					const msgId = msg._id || `msg-${index}`
+					const currentTime = currentTimes[msgId] || 0
+					const progress = msg.audioDuration
+						? (currentTime / msg.audioDuration) * 100
+						: 0
+
 					return (
 						<div
 							key={msgId}
@@ -202,25 +228,25 @@ const ChatContainer = () => {
 							{msg.audio ? (
 								<div className='w-[230px] p-3 bg-violet-500/30 rounded-lg mb-8'>
 									<div className='bg-white/10 backdrop-blur-sm rounded-xl p-4 border border-white/20 hover:bg-white/15 transition-all'>
-										{/* 🎵 ВОЛНА + ВРЕМЯ */}
+										{/* 🎵 УЛУЧШЕННАЯ ЗВУКОВАЯ ВОЛНА */}
 										<div className='flex items-center justify-between mb-3'>
-											<div className='flex items-center gap-1'>
-												<div className='w-1 h-2 bg-gradient-to-r from-violet-400 to-purple-500 rounded-full animate-bounce [animation-duration:0.6s]' />
+											<div className='flex items-center gap-1 w-20'>
+												<div className='w-1 h-[6px] bg-gradient-to-r from-violet-400 to-purple-500 rounded-full animate-wave1' />
+												<div className='w-0.5 h-[10px] bg-violet-400/80 rounded-full animate-wave2' />
+												<div className='w-1.5 h-[8px] bg-purple-500/80 rounded-full animate-wave3' />
+												<div className='w-0.5 h-[12px] bg-violet-400/70 rounded-full animate-wave4' />
 												<div
-													className='w-0.5 h-1.5 bg-violet-400/70 rounded-full mx-0.5 animate-bounce [animation-duration:0.6s]'
-													style={{ animationDelay: "0.1s" }}
-												/>
-												<div
-													className='w-1 h-2 bg-purple-500/70 rounded-full mx-0.5 animate-bounce [animation-duration:0.6s]'
+													className='w-1 h-[6px] bg-purple-500 rounded-full animate-wave1'
 													style={{ animationDelay: "0.2s" }}
 												/>
 											</div>
-											<span className='text-xs text-gray-300 font-mono'>
-												{formatTime(msg.audioDuration || 8)}
+											<span className='text-xs text-gray-300 font-mono font-medium'>
+												{formatTime(currentTime)} /{" "}
+												{formatTime(msg.audioDuration)}
 											</span>
 										</div>
 
-										{/* 📊 ПРОГРЕСС + АУДИО */}
+										{/* 📊 ПРОГРЕСС */}
 										<div className='relative mb-4'>
 											<audio
 												ref={el => {
@@ -229,31 +255,17 @@ const ChatContainer = () => {
 												src={msg.audio}
 												preload='metadata'
 												className='absolute inset-0 w-full h-full opacity-0 pointer-events-none'
-												onEnded={() => {}}
 											/>
 											<div className='w-full bg-white/10 rounded-full h-2 overflow-hidden cursor-pointer hover:bg-white/20 transition-all group'>
-												<div className='h-full bg-gradient-to-r from-violet-400 to-purple-500 rounded-full w-[45%] relative shadow-sm transition-all duration-300' />
+												<div
+													className='h-full bg-gradient-to-r from-violet-400 via-purple-500 to-pink-500 rounded-full shadow-sm transition-all duration-300 ease-linear relative overflow-hidden'
+													style={{ width: `${progress}%` }}
+												/>
 											</div>
 										</div>
 
-										{/* 🎮 КНОПКИ */}
-										<div className='flex items-center justify-center gap-4'>
-											<button
-												onClick={() => rewind(msgId, -10)}
-												className='w-10 h-10 bg-white/20 hover:bg-white/40 rounded-xl flex items-center justify-center transition-all backdrop-blur-sm border border-white/20 hover:scale-110 hover:shadow-lg'
-												title='-10s'>
-												<svg
-													className='w-4 h-4 text-white'
-													fill='currentColor'
-													viewBox='0 0 20 20'>
-													<path
-														fillRule='evenodd'
-														d='M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z'
-														clipRule='evenodd'
-													/>
-												</svg>
-											</button>
-
+										{/* 🎮 PLAY/PAUSE */}
+										<div className='flex items-center justify-center'>
 											<button
 												onClick={() => togglePlayPause(msgId)}
 												className='w-16 h-16 bg-gradient-to-r from-violet-500 to-purple-600 hover:from-violet-600 hover:to-purple-700 rounded-2xl flex items-center justify-center shadow-xl hover:shadow-2xl transition-all duration-200 hover:scale-110 backdrop-blur-sm border-2 border-white/30 group'
@@ -265,22 +277,6 @@ const ChatContainer = () => {
 													<path
 														fillRule='evenodd'
 														d='M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z'
-														clipRule='evenodd'
-													/>
-												</svg>
-											</button>
-
-											<button
-												onClick={() => rewind(msgId, 10)}
-												className='w-10 h-10 bg-white/20 hover:bg-white/40 rounded-xl flex items-center justify-center transition-all backdrop-blur-sm border border-white/20 hover:scale-110 hover:shadow-lg'
-												title='+10s'>
-												<svg
-													className='w-4 h-4 text-white'
-													fill='currentColor'
-													viewBox='0 0 20 20'>
-													<path
-														fillRule='evenodd'
-														d='M7.293 10.293a1 1 0 011.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 111.414-1.414L6 10.586l1.293-1.293z'
 														clipRule='evenodd'
 													/>
 												</svg>
@@ -389,5 +385,7 @@ const ChatContainer = () => {
 		</div>
 	)
 }
+
+
 
 export default ChatContainer
