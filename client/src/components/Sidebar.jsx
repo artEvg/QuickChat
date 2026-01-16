@@ -70,8 +70,8 @@ const Sidebar = () => {
 	}, [input, usersWithChat, allUsersForSearch])
 
 	useEffect(() => {
-		getUsers(), getChats()
-	}, [onlineUsers])
+		getUsers()
+	}, [onlineUsers, getUsers])
 
 	return (
 		<div

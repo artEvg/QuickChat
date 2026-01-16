@@ -9,19 +9,25 @@ export const ChatProvider = ({ children }) => {
 	const [users, setUsers] = useState([])
 	const [selectedUser, setSelectedUser] = useState(null)
 	const [unseenMessages, setUnseenMessages] = useState({})
-	const [chats, setChats] = useState([]) // ✅ chats state
-	const { api, socket, authUser } = useContext(AuthContext) // ✅ добавлен authUser
+	const [chats, setChats] = useState([])
+	const { api, socket, authUser } = useContext(AuthContext)
 
-	// ✅ ИСПРАВЛЕНО: Загрузка переписок пользователя
 	const getChats = async () => {
 		try {
-			const { data } = await api.get(`/messages/chats/${authUser?._id}`)
+			const { data } = await api.get(`/messages/users`)
 			if (data.success) {
-				setChats(data.chats || [])
+				// Извлекаем чаты из ответа users (пока нет отдельного endpoint)
+				setChats(
+					data.users.map(user => ({
+						_id: `chat_${user._id}`,
+						members: [authUser?._id, user._id],
+					}))
+				)
 			}
 		} catch (error) {
 			console.error("Ошибка загрузки чатов:", error)
-			toast.error(error.response?.data?.message || "Ошибка загрузки чатов")
+			// Не показываем toast для чатов - используем fallback
+			setChats([])
 		}
 	}
 
@@ -31,7 +37,14 @@ export const ChatProvider = ({ children }) => {
 			const { data } = await api.get("/messages/users")
 			if (data.success) {
 				setUsers(data.users)
-				setUnseenMessages(data.unseenMessages)
+				setUnseenMessages(data.unseenMessages || {})
+				// Обновляем чаты из users
+				setChats(
+					data.users.map(user => ({
+						_id: `chat_${user._id}`,
+						members: [authUser?._id, user._id],
+					}))
+				)
 			}
 		} catch (error) {
 			toast.error(error.response?.data?.message || error.message)
@@ -87,10 +100,10 @@ export const ChatProvider = ({ children }) => {
 		if (socket) socket.off("newMessage")
 	}
 
-	// ✅ Загружаем чаты при монтировании и изменении пользователя
+	// ✅ Загрузка при монтировании
 	useEffect(() => {
 		if (authUser?._id) {
-			getChats()
+			getUsers()
 		}
 	}, [authUser])
 
