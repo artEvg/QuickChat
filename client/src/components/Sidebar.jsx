@@ -17,6 +17,7 @@ const Sidebar = () => {
 	const { logout, onlineUsers } = useContext(AuthContext)
 
 	const [input, setInput] = useState("")
+	const [showMenu, setShowMenu] = useState(false) // Добавляем состояние для меню
 
 	const navigate = useNavigate()
 
@@ -42,25 +43,34 @@ const Sidebar = () => {
 						alt='logo image'
 						className='max-w-40 cursor-pointer'
 					/>
-					<div className='relative py-2 group'>
+					<div className='relative py-2'>
 						<img
 							src={assets.menu_icon}
 							alt='menu icon'
 							className='max-h-5 cursor-pointer'
+							onClick={() => setShowMenu(prev => !prev)} // Открываем/закрываем по клику
 						/>
-						<div className='absolute top-full right-0 z-20 w-32 p-5 rounded-md bg-[#282142] border border-gray-600 text-gray-100 hidden group-hover:block'>
-							<p
-								onClick={() => navigate("/profile")}
-								className='cursor-pointer text-sm'>
-								Изменить
-							</p>
-							<hr className='my-2 border-t border-gray-500' />
-							<p
-								onClick={logout}
-								className='cursor-pointer text-sm'>
-								Выйти
-							</p>
-						</div>
+						{showMenu && (
+							<div className='absolute top-full right-0 z-20 w-32 p-5 rounded-md bg-[#282142] border border-gray-600 text-gray-100'>
+								<p
+									onClick={() => {
+										navigate("/profile")
+										setShowMenu(false) // Закрываем меню после клика
+									}}
+									className='cursor-pointer text-sm'>
+									Изменить
+								</p>
+								<hr className='my-2 border-t border-gray-500' />
+								<p
+									onClick={() => {
+										logout()
+										setShowMenu(false) // Закрываем меню после клика
+									}}
+									className='cursor-pointer text-sm'>
+									Выйти
+								</p>
+							</div>
+						)}
 					</div>
 				</div>
 
