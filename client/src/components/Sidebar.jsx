@@ -1,4 +1,4 @@
-import { useContext, useState, useEffect } from "react"
+import { useContext, useState, useEffect, useMemo } from "react"
 import assets from "../assets/assets.js"
 import { useNavigate } from "react-router-dom"
 import { AuthContext } from "../../context/AuthContext"
@@ -21,19 +21,36 @@ const Sidebar = () => {
 
 	const navigate = useNavigate()
 
-	// ✅ ИСПРАВЛЕНО: Показываем ТОЛЬКО тех, с кем есть переписка (непрочитанные или выбранный)
+	// ✅ Фильтр по переписке
 	const usersWithChat = users.filter(user => {
-		if (user._id === authUser?._id) return false // Исключаем себя
-
-		// Показываем если есть непрочитанные СЮДА или это выбранный пользователь
+		if (user._id === authUser?._id) return false
 		return unseenMessages[user._id] > 0 || selectedUser?._id === user._id
 	})
 
-	const filteredUsers = input
-		? usersWithChat.filter(user =>
-				user.fullName.toLowerCase().includes(input.toLowerCase())
-		  )
-		: usersWithChat
+	// ✅ Поиск по ВСЕМ пользователям + приоритет перепискам
+	const allUsersForSearch = users.filter(user => user._id !== authUser?._id)
+
+	// ✅ Логика поиска: сначала чаты, потом все пользователи
+	const filteredUsers = useMemo(() => {
+		if (!input.trim()) {
+			return usersWithChat
+		}
+
+		const searchTerm = input.toLowerCase()
+
+		// 1. Сначала ищем среди пользователей с перепиской
+		const chatMatches = usersWithChat.filter(user =>
+			user.fullName.toLowerCase().includes(searchTerm)
+		)
+
+		// 2. Потом ищем среди всех остальных пользователей
+		const otherMatches = allUsersForSearch
+			.filter(user => !usersWithChat.includes(user))
+			.filter(user => user.fullName.toLowerCase().includes(searchTerm))
+
+		// Объединяем: чаты + новые пользователи
+		return [...chatMatches, ...otherMatches]
+	}, [input, usersWithChat, allUsersForSearch])
 
 	useEffect(() => {
 		getUsers()
@@ -93,42 +110,67 @@ const Sidebar = () => {
 						onChange={e => setInput(e.target.value)}
 						type='text'
 						className='bg-transparent border-none outline-none text-white text-sm placeholder-[#c8c8c8] flex-1'
-						placeholder='Найти пользователя'
+						placeholder='🔍 Найти пользователя...'
 					/>
 				</div>
 			</div>
+
 			<div className='flex flex-col'>
 				{filteredUsers.length > 0 ? (
-					filteredUsers.map(user => (
-						<div
-							onClick={() => {
-								setSelectedUser(user)
-								setUnseenMessages(prev => ({ ...prev, [user._id]: 0 }))
-							}}
-							key={user._id} // ✅ Фиксим key - используем только _id
-							className={`relative flex items-center gap-2 p-2 pl-4 rounded cursor-pointer max-sm:text-sm ${
-								selectedUser?._id === user._id ? "bg-[#282142]/50" : ""
-							}`}>
-							<img
-								src={user?.profilePic || assets.avatar_icon}
-								alt='user image'
-								className='w-[35px] aspect-[1/1] rounded-full'
-							/>
-							<div className='flex flex-col leading-5'>
-								<p>{user.fullName}</p>
-								{onlineUsers.includes(user._id) ? (
-									<span className='text-green-400 text-xs'>В сети</span>
-								) : (
-									<span className='text-neutral-400 text-xs'>Нет на месте</span>
+					filteredUsers.map(user => {
+						const hasChat = usersWithChat.some(u => u._id === user._id)
+
+						return (
+							<div
+								onClick={() => {
+									setSelectedUser(user)
+									setUnseenMessages(prev => ({ ...prev, [user._id]: 0 }))
+									// Очищаем поиск при выборе пользователя
+									if (input) setInput("")
+								}}
+								key={user._id}
+								className={`relative flex items-center gap-2 p-2 pl-4 rounded cursor-pointer max-sm:text-sm transition-all duration-200 hover:bg-[#282142]/30 ${
+									selectedUser?._id === user._id ? "bg-[#282142]/50" : ""
+								}`}>
+								<img
+									src={user?.profilePic || assets.avatar_icon}
+									alt='user image'
+									className='w-[35px] aspect-[1/1] rounded-full ring-1 ring-transparent hover:ring-violet-500/50 transition-all'
+								/>
+								<div className='flex flex-col leading-5 flex-1'>
+									<p className='font-medium'>{user.fullName}</p>
+									<div className='flex items-center gap-2'>
+										{onlineUsers.includes(user._id) ? (
+											<span className='text-green-400 text-xs'>В сети</span>
+										) : (
+											<span className='text-neutral-400 text-xs'>
+												Не в сети
+											</span>
+										)}
+										{!hasChat && input && (
+											<span className='text-xs text-violet-400 bg-violet-500/20 px-2 py-0.5 rounded-full'>
+												Новый
+											</span>
+										)}
+									</div>
+								</div>
+								{unseenMessages[user._id] > 0 && (
+									<div className='flex items-center gap-1'>
+										<p className='text-xs h-5 w-5 flex justify-center items-center rounded-full bg-violet-500/50'>
+											{unseenMessages[user._id] > 99
+												? "99+"
+												: unseenMessages[user._id]}
+										</p>
+									</div>
 								)}
 							</div>
-							{unseenMessages[user._id] > 0 && (
-								<p className='absolute top-4 right-4 text-xs h5 w-5 flex justify-center items-center rounded-full bg-violet-500/50'>
-									{unseenMessages[user._id]}
-								</p>
-							)}
-						</div>
-					))
+						)
+					})
+				) : input ? (
+					<div className='flex flex-col items-center justify-center text-gray-400 text-sm py-10'>
+						<p>Пользователь не найден</p>
+						<p className='mt-1 text-xs'>Попробуйте другое имя</p>
+					</div>
 				) : (
 					<div className='flex flex-col items-center justify-center text-gray-400 text-sm py-10'>
 						<p>Нет переписок</p>
