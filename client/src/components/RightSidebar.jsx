@@ -1,6 +1,5 @@
 import { useContext, useEffect, useState } from "react"
 import assets, { imagesDummyData } from "./../assets/assets.js"
-import assets, { imagesDummyData } from "./../assets/assets.js"
 import { useChat } from "../../context/ChatContext.jsx"
 import { useAuth } from "../../context/AuthContext.jsx"
 
