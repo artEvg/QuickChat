@@ -12,56 +12,42 @@ const Sidebar = () => {
 		setSelectedUser,
 		unseenMessages,
 		setUnseenMessages,
-		chats, // ✅ Добавляем chats из контекста
 	} = useContext(ChatContext)
 
 	const { logout, onlineUsers, authUser } = useContext(AuthContext)
 
 	const [input, setInput] = useState("")
 	const [showMenu, setShowMenu] = useState(false)
-	const [searchMode, setSearchMode] = useState(false)
 
 	const navigate = useNavigate()
 
-	// ✅ 1. Пользователи с перепиской (из chats или по непрочитанным)
-	const usersWithChat = useMemo(() => {
-		const chatUserIds =
-			chats?.map(chat => chat.members?.find(id => id !== authUser?._id)) || []
+	const usersWithChat = useMemo(
+		() =>
+			users.filter(user => {
+				if (user._id === authUser?._id) return false
+				const hasUnseenMessages = unseenMessages[user._id] > 0
+				const isSelectedUser = selectedUser?._id === user._id
 
-		return users.filter(user => {
-			if (user._id === authUser?._id) return false
+				return hasUnseenMessages || isSelectedUser
+			}),
+		[users, unseenMessages, selectedUser, authUser]
+	)
 
-			// Проверяем: есть ли чат ИЛИ непрочитанные ИЛИ выбранный
-			const hasChat = chatUserIds.includes(user._id)
-			const hasUnseen = unseenMessages[user._id] > 0
-			const isSelected = selectedUser?._id === user._id
-
-			return hasChat || hasUnseen || isSelected
-		})
-	}, [users, chats, unseenMessages, selectedUser, authUser])
-
-	// ✅ 2. Все пользователи для поиска (исключая себя)
 	const allUsersForSearch = useMemo(
 		() => users.filter(user => user._id !== authUser?._id),
 		[users, authUser]
 	)
-
-	// ✅ 3. Логика поиска
 	const filteredUsers = useMemo(() => {
 		if (!input.trim()) {
-			setSearchMode(false)
 			return usersWithChat
 		}
 
-		setSearchMode(true)
 		const searchTerm = input.toLowerCase()
 
-		// Сначала пользователи с перепиской
 		const chatMatches = usersWithChat.filter(user =>
 			user.fullName.toLowerCase().includes(searchTerm)
 		)
 
-		// Потом все остальные
 		const otherMatches = allUsersForSearch
 			.filter(user => !usersWithChat.some(u => u._id === user._id))
 			.filter(user => user.fullName.toLowerCase().includes(searchTerm))
@@ -71,7 +57,7 @@ const Sidebar = () => {
 
 	useEffect(() => {
 		getUsers()
-	}, [onlineUsers, getUsers])
+	}, [onlineUsers])
 
 	return (
 		<div
@@ -127,11 +113,7 @@ const Sidebar = () => {
 						onChange={e => setInput(e.target.value)}
 						type='text'
 						className='bg-transparent border-none outline-none text-white text-sm placeholder-[#c8c8c8] flex-1'
-						placeholder={
-							searchMode
-								? "🔍 Ищите пользователей..."
-								: "🔍 Найти пользователя..."
-						}
+						placeholder='🔍 Найти пользователя...'
 					/>
 				</div>
 			</div>
