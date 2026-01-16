@@ -1,12 +1,12 @@
-// AuthContext.jsx - ПОЛНАЯ ВЕРСИЯ
 import { createContext, useContext, useEffect, useState, useRef } from "react"
 import axios from "axios"
 import { io } from "socket.io-client"
 import { useNavigate } from "react-router-dom"
+import toast from "react-hot-toast"
 
-const AuthContext = createContext()
+const AuthContext = createContext() // ✅ Создаем context
 
-export const useAuth = () => useContext(AuthContext)
+export const useAuth = () => useContext(AuthContext) // ✅ Hook
 
 export default function AuthContextProvider({ children }) {
 	const [user, setUser] = useState(null)
@@ -14,16 +14,17 @@ export default function AuthContextProvider({ children }) {
 	const socket = useRef()
 	const navigate = useNavigate()
 
-	// ✅ ЛОКАЛЬНЫЙ URL ТОЛЬКО
+	// ✅ Backend URL
 	const backendUrl =
 		import.meta.env.VITE_BACKEND_URL || "http://localhost:4000/api"
 
 	axios.defaults.withCredentials = true
 	axios.defaults.baseURL = backendUrl
 
-	// ✅ Socket.IO - ТОЛЬКО ЛОКАЛЬНО
+	// Socket.IO
 	useEffect(() => {
-		if (!socket.current) {
+		if (backendUrl.includes("localhost")) {
+			// ✅ Только локально
 			socket.current = io(backendUrl.replace("/api", ""), {
 				withCredentials: true,
 				auth: { userId: user?._id },
@@ -32,22 +33,16 @@ export default function AuthContextProvider({ children }) {
 			socket.current.on("connect", () => {
 				console.log("✅ Socket connected:", socket.current.id)
 			})
-
-			socket.current.on("connect_error", error => {
-				console.warn("⚠️ Socket error (fallback to polling):", error.message)
-			})
 		}
 
 		return () => {
-			if (socket.current) {
-				socket.current.disconnect()
-			}
+			if (socket.current) socket.current.disconnect()
 		}
 	}, [backendUrl])
 
-	const login = async (endpoint, credentials) => {
+	const login = async credentials => {
 		try {
-			const { data } = await axios.post(`/user/${endpoint}`, credentials)
+			const { data } = await axios.post("/user/login", credentials)
 			if (data.success) {
 				setUser(data.userData)
 				localStorage.setItem("chat-app-user", JSON.stringify(data.userData))
@@ -55,21 +50,30 @@ export default function AuthContextProvider({ children }) {
 				navigate("/dashboard")
 			}
 		} catch (error) {
-			toast.error(error.response?.data?.message || "Ошибка авторизации")
+			toast.error(error.response?.data?.message || "Ошибка входа")
+		}
+	}
+
+	const signup = async credentials => {
+		try {
+			const { data } = await axios.post("/user/signup", credentials)
+			if (data.success) {
+				setUser(data.userData)
+				localStorage.setItem("chat-app-user", JSON.stringify(data.userData))
+				toast.success(data.message)
+				navigate("/dashboard")
+			}
+		} catch (error) {
+			toast.error(error.response?.data?.message || "Ошибка регистрации")
 		}
 	}
 
 	const logout = async () => {
 		try {
 			await axios.post("/user/logout")
-			setUser(null)
-			localStorage.removeItem("chat-app-user")
-			if (socket.current) socket.current.disconnect()
-			toast.success("Выход выполнен")
-			navigate("/")
 		} catch (error) {
 			console.error("Logout error:", error)
-			// Принудительный выход даже при ошибке
+		} finally {
 			setUser(null)
 			localStorage.removeItem("chat-app-user")
 			if (socket.current) socket.current.disconnect()
@@ -92,24 +96,18 @@ export default function AuthContextProvider({ children }) {
 	}
 
 	useEffect(() => {
-		const savedUser = localStorage.getItem("chat-app-user")
-		if (savedUser) {
-			setUser(JSON.parse(savedUser))
-		}
 		checkAuthStatus()
 	}, [])
 
-	return (
-		<AuthContext.Provider
-			value={{
-				user,
-				login,
-				logout,
-				loading,
-				socket: socket.current,
-				backendUrl,
-			}}>
-			{children}
-		</AuthContext.Provider>
-	)
+	const value = {
+		user,
+		login,
+		signup,
+		logout,
+		loading,
+		socket: socket.current,
+		backendUrl,
+	}
+
+	return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }
