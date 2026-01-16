@@ -17,8 +17,10 @@ const ChatContainer = () => {
 	const [mediaRecorder, setMediaRecorder] = useState(null)
 	const chunks = useRef([])
 
+	// 🎵 Состояние аудио
 	const audioRefs = useRef({})
 	const [currentTimes, setCurrentTimes] = useState({})
+	const [isPlaying, setIsPlaying] = useState({}) // ✅ Анимация волны
 
 	const pollMessages = useCallback(async () => {
 		if (selectedUser?._id) {
@@ -40,6 +42,7 @@ const ChatContainer = () => {
 		}
 	}, [pollMessages])
 
+	// 🎤 Запись голосовых
 	const startRecording = async () => {
 		try {
 			const stream = await navigator.mediaDevices.getUserMedia({
@@ -66,7 +69,7 @@ const ChatContainer = () => {
 				})
 
 				const audioContext = new (window.AudioContext ||
-					window.AudioContext)()
+					window.webkitAudioContext)()
 				const arrayBuffer = await audioBlob.arrayBuffer()
 				const audioBuffer = await audioContext.decodeAudioData(arrayBuffer)
 				const duration = Math.round(audioBuffer.duration)
@@ -104,51 +107,86 @@ const ChatContainer = () => {
 		}
 	}
 
-	// 🎵 Аудио контролы
+	// 🎵 Toggle play/pause + управление анимацией
 	const togglePlayPause = msgId => {
 		const audio = audioRefs.current[msgId]
 		if (!audio) return
 
-		if (audio.paused) {
+		if (audio.paused || audio.ended) {
 			audio.play().catch(e => console.log("Play error:", e))
+			setIsPlaying(prev => ({ ...prev, [msgId]: true }))
 		} else {
 			audio.pause()
+			setIsPlaying(prev => ({ ...prev, [msgId]: false }))
 		}
 	}
 
 	const formatTime = seconds => {
-		if (!seconds) return "0:00"
+		if (!seconds || isNaN(seconds)) return "0:00"
 		const mins = Math.floor(seconds / 60)
 		const secs = Math.floor(seconds % 60)
 		return `${mins}:${secs.toString().padStart(2, "0")}`
 	}
+
+	// 📊 Отслеживание времени + события аудио
 	useEffect(() => {
-		const intervals = {}
+		const handleTimeUpdate = msgId => {
+			const audio = audioRefs.current[msgId]
+			if (audio) {
+				setCurrentTimes(prev => ({
+					...prev,
+					[msgId]: audio.currentTime,
+				}))
+			}
+		}
+
+		const handlePlay = msgId => {
+			setIsPlaying(prev => ({ ...prev, [msgId]: true }))
+		}
+
+		const handlePause = msgId => {
+			setIsPlaying(prev => ({ ...prev, [msgId]: false }))
+		}
+
+		const handleEnded = msgId => {
+			setIsPlaying(prev => ({ ...prev, [msgId]: false }))
+			setCurrentTimes(prev => ({ ...prev, [msgId]: 0 }))
+		}
 
 		messages.forEach(msg => {
 			const msgId = msg._id || `msg-${messages.indexOf(msg)}`
-			if (msg.audio && audioRefs.current[msgId]) {
-				intervals[msgId] = setInterval(() => {
-					const audio = audioRefs.current[msgId]
-					if (audio) {
-						setCurrentTimes(prev => ({
-							...prev,
-							[msgId]: audio.currentTime,
-						}))
-					}
-				}, 500)
+			const audio = audioRefs.current[msgId]
+
+			if (audio && msg.audio) {
+				audio.removeEventListener("timeupdate", () => handleTimeUpdate(msgId))
+				audio.removeEventListener("play", () => handlePlay(msgId))
+				audio.removeEventListener("pause", () => handlePause(msgId))
+				audio.removeEventListener("ended", () => handleEnded(msgId))
+
+				audio.addEventListener("timeupdate", () => handleTimeUpdate(msgId))
+				audio.addEventListener("play", () => handlePlay(msgId))
+				audio.addEventListener("pause", () => handlePause(msgId))
+				audio.addEventListener("ended", () => handleEnded(msgId))
 			}
 		})
 
 		return () => {
-			Object.values(intervals).forEach(clearInterval)
+			messages.forEach(msg => {
+				const msgId = msg._id || `msg-${messages.indexOf(msg)}`
+				const audio = audioRefs.current[msgId]
+				if (audio) {
+					audio.removeEventListener("timeupdate", () => {})
+					audio.removeEventListener("play", () => {})
+					audio.removeEventListener("pause", () => {})
+					audio.removeEventListener("ended", () => {})
+				}
+			})
 		}
 	}, [messages])
 
 	const handleSendMessage = async e => {
 		e.preventDefault()
 		if (input.trim() === "") return
-
 		try {
 			await sendMessage({ text: input.trim() })
 			setInput("")
@@ -164,7 +202,6 @@ const ChatContainer = () => {
 			return
 		}
 		const reader = new FileReader()
-
 		reader.onloadend = async () => {
 			try {
 				await sendMessage({ image: reader.result })
@@ -211,13 +248,16 @@ const ChatContainer = () => {
 					alt='help icon'
 				/>
 			</div>
+
 			<div className='flex flex-col items-center h-[calc(100%-120px)] overflow-y-scroll p-3 pb-6'>
 				{messages.map((msg, index) => {
 					const msgId = msg._id || `msg-${index}`
 					const currentTime = currentTimes[msgId] || 0
-					const progress = msg.audioDuration
-						? (currentTime / msg.audioDuration) * 100
+					const totalDuration = msg.audioDuration || 0
+					const progress = totalDuration
+						? (currentTime / totalDuration) * 100
 						: 0
+					const playing = isPlaying[msgId] || false
 
 					return (
 						<div
@@ -228,21 +268,40 @@ const ChatContainer = () => {
 							{msg.audio ? (
 								<div className='w-[230px] p-3 bg-violet-500/30 rounded-lg mb-8'>
 									<div className='bg-white/10 backdrop-blur-sm rounded-xl p-4 border border-white/20 hover:bg-white/15 transition-all'>
-										{/* 🎵 УЛУЧШЕННАЯ ЗВУКОВАЯ ВОЛНА */}
+										{/* 🎵 ЗВУКОВАЯ ВОЛНА - АНИМИРУЕТСЯ при воспроизведении */}
 										<div className='flex items-center justify-between mb-3'>
-											<div className='flex items-center gap-1 w-20'>
-												<div className='w-1 h-[6px] bg-gradient-to-r from-violet-400 to-purple-500 rounded-full animate-wave1' />
-												<div className='w-0.5 h-[10px] bg-violet-400/80 rounded-full animate-wave2' />
-												<div className='w-1.5 h-[8px] bg-purple-500/80 rounded-full animate-wave3' />
-												<div className='w-0.5 h-[12px] bg-violet-400/70 rounded-full animate-wave4' />
+											<div
+												className={`flex items-center gap-1 w-20 transition-all duration-300 ${
+													playing ? "animate-pulse" : ""
+												}`}>
 												<div
-													className='w-1 h-[6px] bg-purple-500 rounded-full animate-wave1'
-													style={{ animationDelay: "0.2s" }}
+													className={`w-1 h-[6px] bg-gradient-to-r from-violet-400 to-purple-500 rounded-full transition-all ${
+														playing ? "animate-wave1" : "opacity-50"
+													}`}
+												/>
+												<div
+													className={`w-0.5 h-[10px] bg-violet-400/80 rounded-full transition-all ${
+														playing ? "animate-wave2" : "opacity-50 scale-75"
+													}`}
+												/>
+												<div
+													className={`w-1.5 h-[8px] bg-purple-500/80 rounded-full transition-all ${
+														playing ? "animate-wave3" : "opacity-50"
+													}`}
+												/>
+												<div
+													className={`w-0.5 h-[12px] bg-violet-400/70 rounded-full transition-all ${
+														playing ? "animate-wave4" : "opacity-50 scale-75"
+													}`}
+												/>
+												<div
+													className={`w-1 h-[6px] bg-purple-500 rounded-full transition-all ${
+														playing ? "animate-wave1 delay-200" : "opacity-50"
+													}`}
 												/>
 											</div>
 											<span className='text-xs text-gray-300 font-mono font-medium'>
-												{formatTime(currentTime)} /{" "}
-												{formatTime(msg.audioDuration)}
+												{formatTime(currentTime)} / {formatTime(totalDuration)}
 											</span>
 										</div>
 
@@ -268,17 +327,31 @@ const ChatContainer = () => {
 										<div className='flex items-center justify-center'>
 											<button
 												onClick={() => togglePlayPause(msgId)}
-												className='w-16 h-16 bg-gradient-to-r from-violet-500 to-purple-600 hover:from-violet-600 hover:to-purple-700 rounded-2xl flex items-center justify-center shadow-xl hover:shadow-2xl transition-all duration-200 hover:scale-110 backdrop-blur-sm border-2 border-white/30 group'
-												title='Play/Pause'>
+												className={`w-16 h-16 rounded-2xl flex items-center justify-center shadow-xl transition-all duration-200 hover:scale-110 backdrop-blur-sm border-2 ${
+													playing
+														? "bg-gradient-to-r from-red-500 to-pink-500 hover:from-red-600 hover:to-pink-600 border-red-400/50 shadow-red-500/25"
+														: "bg-gradient-to-r from-violet-500 to-purple-600 hover:from-violet-600 hover:to-purple-700 border-white/30 shadow-purple-500/25 hover:shadow-2xl"
+												}`}
+												title={playing ? "Pause" : "Play"}>
 												<svg
-													className='w-8 h-8 text-white drop-shadow-lg transition-transform group-hover:scale-110'
+													className='w-8 h-8 text-white drop-shadow-lg transition-transform hover:scale-110'
 													fill='currentColor'
 													viewBox='0 0 20 20'>
-													<path
-														fillRule='evenodd'
-														d='M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z'
-														clipRule='evenodd'
-													/>
+													{playing ? (
+														// ⏸️ PAUSE icon
+														<path
+															fillRule='evenodd'
+															d='M18 10a8 8 0 11-16 0 8 8 0 0116 0zM7 8a1 1 0 012 0v4a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v4a1 1 0 102 0V8a1 1 0 00-1-1z'
+															clipRule='evenodd'
+														/>
+													) : (
+														// ▶️ PLAY icon
+														<path
+															fillRule='evenodd'
+															d='M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z'
+															clipRule='evenodd'
+														/>
+													)}
 												</svg>
 											</button>
 										</div>
@@ -319,6 +392,7 @@ const ChatContainer = () => {
 				})}
 				<div ref={scrollEnd}></div>
 			</div>
+
 			<form onSubmit={handleSendMessage}>
 				<div className='absolute bottom-0 left-0 right-0 flex items-center gap-3 p-3'>
 					<div className='flex-1 flex items-center bg-gray-100/12 px-3 rounded-full'>
@@ -385,7 +459,5 @@ const ChatContainer = () => {
 		</div>
 	)
 }
-
-
 
 export default ChatContainer
