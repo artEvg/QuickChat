@@ -78,26 +78,29 @@ export const markMessageAsSeen = async (req, res) => {
 // Отправка сообщения пользователю
 export const sendMessage = async (req, res) => {
 	try {
-		const { text, image } = req.body
+		const { text, image, audio } = req.body // ✅ audio добавлен
 		const receiverId = req.params.id
 		const senderId = req.user._id
 		let imageUrl
+
 		if (image) {
 			const uploadResponse = await cloudinary.uploader.upload(image)
 			imageUrl = uploadResponse.secure_url
 		}
+
 		const newMessage = await Message.create({
 			senderId,
 			receiverId,
 			text,
 			image: imageUrl,
+			audio, // ✅ audio поле
 		})
 
-		// Отправка новое сообщение на устройство
 		const receiverSocketId = userSocketMap[receiverId]
 		if (receiverSocketId) {
 			io.to(receiverSocketId).emit("newMessage", newMessage)
 		}
+
 		res.json({ success: true, newMessage })
 	} catch (error) {
 		console.log(error)

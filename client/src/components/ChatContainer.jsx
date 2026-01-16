@@ -13,6 +13,12 @@ const ChatContainer = () => {
 	const scrollEnd = useRef()
 	const [input, setInput] = useState("")
 
+	// 🎤 Голосовые сообщения
+	const [isRecording, setIsRecording] = useState(false)
+	const [mediaRecorder, setMediaRecorder] = useState(null)
+	const chunks = useRef([])
+
+	// 🔥 АВТО-ОБНОВЛЕНИЕ каждые 3 сек
 	const pollMessages = useCallback(async () => {
 		if (selectedUser?._id) {
 			try {
@@ -33,7 +39,42 @@ const ChatContainer = () => {
 		}
 	}, [pollMessages])
 
-	// Отправка сообщения
+	// 🎤 НАЧАЛО записи
+	const startRecording = async () => {
+		try {
+			const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+			const recorder = new MediaRecorder(stream)
+			chunks.current = []
+
+			recorder.ondataavailable = e => chunks.current.push(e.data)
+			recorder.onstop = async () => {
+				const audioBlob = new Blob(chunks.current, { type: "audio/webm" })
+				const reader = new FileReader()
+				reader.onloadend = async () => {
+					await sendMessage({ audio: reader.result })
+				}
+				reader.readAsDataURL(audioBlob)
+				stream.getTracks().forEach(track => track.stop())
+			}
+
+			recorder.start()
+			setMediaRecorder(recorder)
+			setIsRecording(true)
+		} catch (error) {
+			toast.error("Микрофон недоступен")
+		}
+	}
+
+	// 🎤 СТОП записи
+	const stopRecording = () => {
+		if (mediaRecorder && isRecording) {
+			mediaRecorder.stop()
+			setIsRecording(false)
+			setMediaRecorder(null)
+		}
+	}
+
+	// Отправка текста
 	const handleSendMessage = async e => {
 		e.preventDefault()
 		if (input.trim() === "") return null
@@ -46,7 +87,7 @@ const ChatContainer = () => {
 		}
 	}
 
-	// Отправка Изображения
+	// Отправка изображения
 	const handleSendImage = async e => {
 		const file = e.target.files[0]
 		if (!file || !file.type.startsWith("image/")) {
@@ -108,7 +149,16 @@ const ChatContainer = () => {
 						className={`flex w-full items-end gap-2 justify-end ${
 							msg.senderId !== authUser._id && "flex-row-reverse"
 						}`}>
-						{msg.image ? (
+						{msg.audio ? (
+							// 🎤 АУДИО
+							<div className='w-[230px] p-3 bg-violet-500/30 rounded-lg mb-8'>
+								<audio
+									controls
+									className='w-full h-12'
+									src={msg.audio}
+								/>
+							</div>
+						) : msg.image ? (
 							<img
 								className='w-[230px] border-gray-700 rounded-lg overflow-hidden mb-8'
 								src={msg.image}
@@ -143,7 +193,6 @@ const ChatContainer = () => {
 				<div ref={scrollEnd}></div>
 			</div>
 			<form onSubmit={handleSendMessage}>
-				{" "}
 				<div className='absolute bottom-0 left-0 right-0 flex items-center gap-3 p-3'>
 					<div className='flex-1 flex items-center bg-gray-100/12 px-3 rounded-full'>
 						<input
@@ -168,9 +217,26 @@ const ChatContainer = () => {
 								alt='Gallery icon'
 							/>
 						</label>
+						{/* 🎤 МИКРОФОН */}
+						<button
+							type='button'
+							onMouseDown={startRecording}
+							onMouseUp={stopRecording}
+							onTouchStart={startRecording}
+							onTouchEnd={stopRecording}
+							className={`w-10 h-10 rounded-full flex items-center justify-center ml-2 transition-all ${
+								isRecording
+									? "bg-red-500 shadow-lg shadow-red-500/50"
+									: "bg-violet-500/50 hover:bg-violet-500"
+							}`}>
+							<div
+								className={`w-5 h-5 rounded-full transition-all ${
+									isRecording ? "scale-125 bg-white animate-pulse" : "bg-white"
+								}`}
+							/>
+						</button>
 					</div>
 					<button type='submit'>
-						{" "}
 						<img
 							className='w-7 cursor-pointer'
 							src={assets.send_button}
