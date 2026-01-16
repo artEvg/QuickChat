@@ -12,28 +12,47 @@ const Sidebar = () => {
 		setSelectedUser,
 		unseenMessages,
 		setUnseenMessages,
+		messages, // ✅ Добавляем messages из ChatContext
 	} = useContext(ChatContext)
 
 	const { logout, onlineUsers = [], authUser } = useContext(AuthContext)
 
 	const [input, setInput] = useState("")
 	const [showMenu, setShowMenu] = useState(false)
-	const [chatHistory, setChatHistory] = useState(new Set()) // История чатов
+	const [usersYouWroteTo, setUsersYouWroteTo] = useState(new Set()) // ✅ КЛЮЧЕВОЙ state
 
 	const navigate = useNavigate()
 
-	// ✅ ПРОСТАЯ ЛОГИКА: непрочитанные + история + выбранный
-	const usersWithChat = useMemo(() => {
+	// 🔥 ГЛАВНАЯ ЛОГИКА: ТОЛЬКО пользователи, КОТОРЫМ ТЫ НАПИСАЛ
+	const usersWithYourMessages = useMemo(() => {
 		return users.filter(user => {
 			if (!user._id || user._id === authUser?._id) return false
 
-			const hasUnseen = unseenMessages[user._id] > 0
-			const hasHistory = chatHistory.has(user._id)
-			const isSelected = selectedUser?._id === user._id
+			// ✅ 1. Есть непрочитанные от них
+			const hasUnseenFromThem = unseenMessages[user._id] > 0
 
-			return hasUnseen || hasHistory || isSelected
+			// ✅ 2. Ты им писал (есть в истории)
+			const youWroteToThem = usersYouWroteTo.has(user._id)
+
+			// ✅ 3. Сейчас выбранный чат
+			const isCurrentChat = selectedUser?._id === user._id
+
+			return hasUnseenFromThem || youWroteToThem || isCurrentChat
 		})
-	}, [users, unseenMessages, chatHistory, selectedUser, authUser])
+	}, [users, unseenMessages, usersYouWroteTo, selectedUser, authUser])
+
+	// ✅ Обновляем список при загрузке сообщений текущего чата
+	useEffect(() => {
+		if (messages.length > 0 && selectedUser) {
+			// Если в текущем чате есть ТВОИ сообщения → добавляем в историю
+			const hasYourMessages = messages.some(
+				msg => msg.senderId === authUser?._id
+			)
+			if (hasYourMessages) {
+				setUsersYouWroteTo(prev => new Set([...prev, selectedUser._id]))
+			}
+		}
+	}, [messages, selectedUser, authUser])
 
 	const allUsersForSearch = useMemo(
 		() => users.filter(user => user._id !== authUser?._id),
@@ -41,47 +60,40 @@ const Sidebar = () => {
 	)
 
 	const filteredUsers = useMemo(() => {
-		if (!input.trim()) return usersWithChat
+		if (!input.trim()) return usersWithYourMessages
 
 		const searchTerm = input.toLowerCase()
-		const chatMatches = usersWithChat.filter(user =>
+		const chatMatches = usersWithYourMessages.filter(user =>
 			user.fullName?.toLowerCase().includes(searchTerm)
 		)
 		const otherMatches = allUsersForSearch
-			.filter(user => !usersWithChat.some(u => u._id === user._id))
+			.filter(user => !usersWithYourMessages.some(u => u._id === user._id))
 			.filter(user => user.fullName?.toLowerCase().includes(searchTerm))
 
 		return [...chatMatches, ...otherMatches]
-	}, [input, usersWithChat, allUsersForSearch])
+	}, [input, usersWithYourMessages, allUsersForSearch])
 
-	// ✅ Добавляем в историю при клике
 	const handleSelectUser = useCallback(
 		user => {
 			setSelectedUser(user)
 			setUnseenMessages(prev => ({ ...prev, [user._id]: 0 }))
-			setChatHistory(prev => new Set([...prev, user._id])) // ✅ Запоминаем
+			// ✅ При первом клике помечаем как "ты открыл чат"
+			setUsersYouWroteTo(prev => new Set([...prev, user._id]))
 			if (input) setInput("")
 		},
-		[input, setSelectedUser, setUnseenMessages]
+		[input]
 	)
-
-	// ✅ Авто-добавление при смене selectedUser
-	useEffect(() => {
-		if (selectedUser?._id && !chatHistory.has(selectedUser._id)) {
-			setChatHistory(prev => new Set([...prev, selectedUser._id]))
-		}
-	}, [selectedUser, chatHistory])
 
 	useEffect(() => {
 		getUsers()
-	}, []) // ✅ Убираем onlineUsers - socket не работает
+	}, [])
 
 	return (
 		<div
 			className={`bg-[#8185B2]/10 h-full p-5 rounded-r-xl overflow-y-scroll text-white ${
 				selectedUser ? "max-md:hidden" : ""
 			}`}>
-			{/* Header + поиск - без изменений */}
+			{/* Header */}
 			<div className='pb-5'>
 				<div className='flex justify-between items-center'>
 					<img
@@ -137,7 +149,7 @@ const Sidebar = () => {
 			<div className='flex flex-col'>
 				{filteredUsers.length > 0 ? (
 					filteredUsers.map(user => {
-						const hasChat = usersWithChat.some(u => u._id === user._id)
+						const hasChat = usersWithYourMessages.some(u => u._id === user._id)
 						return (
 							<div
 								key={user._id}
@@ -185,7 +197,7 @@ const Sidebar = () => {
 				) : (
 					<div className='flex flex-col items-center justify-center text-gray-400 text-sm py-10'>
 						<p>Нет переписок</p>
-						<p className='mt-1'>Начните новый чат</p>
+						<p className='mt-1'>Напишите первому!</p>
 					</div>
 				)}
 			</div>
