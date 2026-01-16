@@ -20,7 +20,7 @@ const ChatContainer = () => {
 	// 🎵 Состояние аудио
 	const audioRefs = useRef({})
 	const [currentTimes, setCurrentTimes] = useState({})
-	const [isPlaying, setIsPlaying] = useState({}) // ✅ Анимация волны
+	const [isPlaying, setIsPlaying] = useState({})
 
 	const pollMessages = useCallback(async () => {
 		if (selectedUser?._id) {
@@ -266,75 +266,70 @@ const ChatContainer = () => {
 								msg.senderId !== authUser._id && "flex-row-reverse"
 							}`}>
 							{msg.audio ? (
-								<div className='w-[230px] p-3 bg-violet-500/30 rounded-lg mb-8'>
-									<div className='bg-white/10 backdrop-blur-sm rounded-xl p-4 border border-white/20 hover:bg-white/15 transition-all'>
-										{/* 🎵 ЗВУКОВАЯ ВОЛНА - АНИМИРУЕТСЯ при воспроизведении */}
-										<div className='flex items-center justify-between mb-3'>
+								// 🎵 ШИРОКИЙ КОМПАКТНЫЙ ПЛЕЕР (280px × 100px)
+								<div className='w-[280px] h-[100px] p-4 bg-violet-500/30 rounded-xl mb-6'>
+									<div className='bg-white/10 backdrop-blur-sm rounded-2xl p-3 border border-white/20 hover:bg-white/15 transition-all h-full flex flex-col justify-between'>
+										{/* 🎵 Волна + время */}
+										<div className='flex items-center justify-between mb-2'>
 											<div
-												className={`flex items-center gap-1 w-20 transition-all duration-300 ${
+												className={`flex items-center gap-0.5 w-full sm:w-24 transition-all ${
 													playing ? "animate-pulse" : ""
 												}`}>
 												<div
-													className={`w-1 h-[6px] bg-gradient-to-r from-violet-400 to-purple-500 rounded-full transition-all ${
-														playing ? "animate-wave1" : "opacity-50"
+													className={`w-[2px] h-[8px] bg-gradient-to-r from-violet-400 to-purple-500 rounded transition-all ${
+														playing ? "animate-wave1" : "opacity-50 scale-75"
 													}`}
 												/>
 												<div
-													className={`w-0.5 h-[10px] bg-violet-400/80 rounded-full transition-all ${
+													className={`w-[1px] h-[12px] bg-violet-400/80 rounded transition-all ${
 														playing ? "animate-wave2" : "opacity-50 scale-75"
 													}`}
 												/>
 												<div
-													className={`w-1.5 h-[8px] bg-purple-500/80 rounded-full transition-all ${
+													className={`w-[3px] h-[10px] bg-purple-500/80 rounded transition-all ${
 														playing ? "animate-wave3" : "opacity-50"
 													}`}
 												/>
 												<div
-													className={`w-0.5 h-[12px] bg-violet-400/70 rounded-full transition-all ${
+													className={`w-[1px] h-[14px] bg-violet-400/70 rounded transition-all ${
 														playing ? "animate-wave4" : "opacity-50 scale-75"
 													}`}
 												/>
 												<div
-													className={`w-1 h-[6px] bg-purple-500 rounded-full transition-all ${
-														playing ? "animate-wave1 delay-200" : "opacity-50"
+													className={`w-[2px] h-[8px] bg-purple-500 rounded transition-all ${
+														playing
+															? "animate-wave1 delay-200"
+															: "opacity-50 scale-75"
 													}`}
 												/>
 											</div>
-											<span className='text-xs text-gray-300 font-mono font-medium'>
+											<span className='text-xs text-gray-300 font-mono font-medium min-w-[50px] text-right'>
 												{formatTime(currentTime)} / {formatTime(totalDuration)}
 											</span>
 										</div>
 
-										{/* 📊 ПРОГРЕСС */}
-										<div className='relative mb-4'>
-											<audio
-												ref={el => {
-													if (el) audioRefs.current[msgId] = el
-												}}
-												src={msg.audio}
-												preload='metadata'
-												className='absolute inset-0 w-full h-full opacity-0 pointer-events-none'
-											/>
-											<div className='w-full bg-white/10 rounded-full h-2 overflow-hidden cursor-pointer hover:bg-white/20 transition-all group'>
+										{/* 📊 Компактный прогресс */}
+										<div className='mb-3'>
+											<div className='w-full bg-white/10 rounded-full h-[3px] overflow-hidden cursor-pointer hover:bg-white/20 transition-all group'>
 												<div
-													className='h-full bg-gradient-to-r from-violet-400 via-purple-500 to-pink-500 rounded-full shadow-sm transition-all duration-300 ease-linear relative overflow-hidden'
+													className='h-full bg-gradient-to-r from-violet-400 via-purple-500 to-pink-500 rounded-full shadow-sm transition-all duration-300 ease-linear'
 													style={{ width: `${progress}%` }}
 												/>
 											</div>
 										</div>
 
-										{/* 🎮 PLAY/PAUSE */}
-										<div className='flex items-center justify-center'>
+										{/* 🎮 Большая кнопка */}
+										<div className='flex justify-center'>
 											<button
 												onClick={() => togglePlayPause(msgId)}
-												className={`w-16 h-16 rounded-2xl flex items-center justify-center shadow-xl transition-all duration-200 hover:scale-110 backdrop-blur-sm border-2 ${
+												className={`w-14 h-14 rounded-xl flex items-center justify-center shadow-lg transition-all duration-200 hover:scale-110 backdrop-blur-sm border ${
 													playing
 														? "bg-gradient-to-r from-red-500 to-pink-500 hover:from-red-600 hover:to-pink-600 border-red-400/50 shadow-red-500/25"
-														: "bg-gradient-to-r from-violet-500 to-purple-600 hover:from-violet-600 hover:to-purple-700 border-white/30 shadow-purple-500/25 hover:shadow-2xl"
+														: "bg-gradient-to-r from-violet-500 to-purple-600 hover:from-violet-600 hover:to-purple-700 border-white/30 shadow-purple-500/25"
 												}`}
 												title={playing ? "Pause" : "Play"}>
 												<svg
-													className='w-8 h-8 text-white drop-shadow-lg transition-transform hover:scale-110'
+													className='w-6 h-6 text-white drop-shadow-md transition-transform hover:scale-110'
 													fill='currentColor'
 													viewBox='0 0 20 20'>
 													{playing ? (
@@ -355,6 +350,16 @@ const ChatContainer = () => {
 												</svg>
 											</button>
 										</div>
+
+										{/* 🎵 Скрытый аудио элемент */}
+										<audio
+											ref={el => {
+												if (el) audioRefs.current[msgId] = el
+											}}
+											src={msg.audio}
+											preload='metadata'
+											className='absolute inset-0 w-full h-full opacity-0 pointer-events-none'
+										/>
 									</div>
 								</div>
 							) : msg.image ? (
