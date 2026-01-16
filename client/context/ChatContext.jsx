@@ -16,7 +16,6 @@ export const ChatProvider = ({ children }) => {
 		try {
 			const { data } = await api.get(`/messages/users`)
 			if (data.success) {
-				// Извлекаем чаты из ответа users (пока нет отдельного endpoint)
 				setChats(
 					data.users.map(user => ({
 						_id: `chat_${user._id}`,
@@ -26,7 +25,6 @@ export const ChatProvider = ({ children }) => {
 			}
 		} catch (error) {
 			console.error("Ошибка загрузки чатов:", error)
-			// Не показываем toast для чатов - используем fallback
 			setChats([])
 		}
 	}

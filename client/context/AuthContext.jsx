@@ -97,16 +97,34 @@ export const AuthProvider = ({ children }) => {
 	const connectSocket = userData => {
 		if (!userData || socket?.connected) return
 
-		const newSocket = io(backendUrl.replace("/api", ""), {
+		const socketUrl = backendUrl.replace("/api", "")
+		console.log("🔌 Connecting socket to:", socketUrl)
+
+		const newSocket = io(socketUrl, {
 			query: { userId: userData._id },
-			transports: ["websocket"],
+			// ✅ КЛЮЧЕВОЕ: polling + websocket (Vercel fallback)
+			transports: ["polling", "websocket"],
+			timeout: 20000,
+			reconnection: true,
+			reconnectionAttempts: 5,
+			reconnectionDelay: 1000,
+			forceNew: true,
 		})
 
 		newSocket.on("connect", () => {
-			console.log("Socket connected")
+			console.log("✅ Socket connected:", newSocket.id)
+		})
+
+		newSocket.on("disconnect", reason => {
+			console.log("🔌 Socket disconnected:", reason)
+		})
+
+		newSocket.on("connect_error", error => {
+			console.log("⚠️ Socket error (fallback to polling):", error.message)
 		})
 
 		newSocket.on("getOnlineUsers", userIds => {
+			console.log("👥 Online users:", userIds.length)
 			setOnlineUsers(userIds)
 		})
 

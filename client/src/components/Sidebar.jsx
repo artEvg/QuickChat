@@ -26,12 +26,12 @@ const Sidebar = () => {
 		return users.filter(user => {
 			if (user._id === authUser?._id) return false
 			const hasUnseen = unseenMessages[user._id] > 0
-			const hasRecentChat = recentChats.has(user._id)
-			const isSelected = selectedUser?._id === user._id
+			const hasInteraction = recentChats.has(user._id)
+			const isCurrentChat = selectedUser?._id === user._id
 
-			return hasUnseen || hasRecentChat || isSelected
+			return hasUnseen || hasInteraction || isCurrentChat
 		})
-	}, [users, unseenMessages, recentChats, selectedUser, authUser])
+	}, [users, unseenMessages, recentChats, selectedUser, authUser._id])
 
 	const allUsersForSearch = useMemo(
 		() => users.filter(user => user._id !== authUser?._id),
