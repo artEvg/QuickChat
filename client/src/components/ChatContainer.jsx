@@ -39,7 +39,7 @@ const ChatContainer = () => {
 		}
 	}, [pollMessages])
 
-	// 🎤 НАЧАЛО записи - ИСПРАВЛЕННОЕ
+	// 🎤 НАЧАЛО записи
 	const startRecording = async () => {
 		try {
 			const stream = await navigator.mediaDevices.getUserMedia({
@@ -70,7 +70,7 @@ const ChatContainer = () => {
 					try {
 						await sendMessage({
 							audio: reader.result,
-							audioDuration: Math.round(audioBlob.size / 500), // Примерная длительность
+							audioDuration: Math.round(audioBlob.size / 500),
 						})
 					} catch (error) {
 						toast.error("Ошибка отправки аудио")
@@ -81,7 +81,7 @@ const ChatContainer = () => {
 				stream.getTracks().forEach(track => track.stop())
 			}
 
-			recorder.start(250) // Чанки по 250мс
+			recorder.start(250)
 			setMediaRecorder(recorder)
 			setIsRecording(true)
 		} catch (error) {
@@ -90,7 +90,6 @@ const ChatContainer = () => {
 		}
 	}
 
-	// 🎤 СТОП записи
 	const stopRecording = () => {
 		if (mediaRecorder && isRecording) {
 			mediaRecorder.stop()
@@ -99,7 +98,6 @@ const ChatContainer = () => {
 		}
 	}
 
-	// Отправка текста
 	const handleSendMessage = async e => {
 		e.preventDefault()
 		if (input.trim() === "") return null
@@ -112,7 +110,6 @@ const ChatContainer = () => {
 		}
 	}
 
-	// Отправка изображения
 	const handleSendImage = async e => {
 		const file = e.target.files[0]
 		if (!file || !file.type.startsWith("image/")) {
@@ -175,21 +172,70 @@ const ChatContainer = () => {
 							msg.senderId !== authUser._id && "flex-row-reverse"
 						}`}>
 						{msg.audio ? (
-							// 🎤 ИСПРАВЛЕННЫЙ АУДИО ПЛЕЕР
 							<div className='w-[230px] p-3 bg-violet-500/30 rounded-lg mb-8'>
-								<audio
-									controls
-									controlsList='nodownload'
-									className='w-full h-12'
-									preload='metadata'
-									src={msg.audio}>
-									Ваш браузер не поддерживает аудио
-								</audio>
-								{msg.audioDuration && (
-									<p className='text-xs text-gray-400 mt-1 text-center'>
-										{msg.audioDuration}s
-									</p>
-								)}
+								<div className='bg-white/10 backdrop-blur-sm rounded-xl p-4 border border-white/20 hover:bg-white/15 transition-all group'>
+									{/* 🎵 Аудиоволна + время */}
+									<div className='flex items-center justify-between mb-3'>
+										<div className='flex items-center gap-1'>
+											<div className='w-1 h-1.5 bg-gradient-to-r from-violet-400 to-purple-500 rounded-full animate-pulse' />
+											<div className='w-0.5 h-1 bg-violet-400/70 rounded-full mx-0.5' />
+											<div className='w-1 h-1.5 bg-purple-500/70 rounded-full mx-0.5' />
+											<div className='w-0.5 h-1 bg-violet-400/50 rounded-full animate-pulse animation-delay-100' />
+										</div>
+										<span className='text-xs text-gray-300 font-mono tracking-wider'>
+											0:{msg.audioDuration || "08"}
+										</span>
+									</div>
+
+									{/* 📊 Прогресс бар */}
+									<div className='w-full bg-white/10 rounded-full h-1.5 mb-4 overflow-hidden group-hover:bg-white/20 transition-all'>
+										<div className='h-full bg-gradient-to-r from-violet-400 via-purple-500 to-pink-500 rounded-full w-[45%] shadow-sm transition-all duration-500 ease-in-out' />
+									</div>
+
+									{/* 🎮 Контролы */}
+									<div className='flex items-center justify-between'>
+										<button className='p-2 bg-white/20 hover:bg-white/30 rounded-lg transition-all backdrop-blur-sm border border-white/20 hover:scale-105 group-hover:bg-white/40'>
+											<svg
+												className='w-4 h-4 text-white'
+												fill='currentColor'
+												viewBox='0 0 20 20'>
+												<path
+													fillRule='evenodd'
+													d='M18 10a8 8 0 11-16 0 8 8 0 0116 0zM12.707 8.707a1 1 0 10-1.414-1.414L11 10.586 9.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z'
+													clipRule='evenodd'
+												/>
+											</svg>
+										</button>
+
+										<div className='flex items-center gap-3'>
+											<button className='w-10 h-10 bg-gradient-to-r from-violet-500/90 to-purple-600/90 hover:from-violet-600 hover:to-purple-700 rounded-xl shadow-lg hover:shadow-xl transition-all hover:scale-[1.05] backdrop-blur-sm border border-white/30 flex items-center justify-center'>
+												<svg
+													className='w-5 h-5 text-white drop-shadow-sm'
+													fill='currentColor'
+													viewBox='0 0 20 20'>
+													<path
+														fillRule='evenodd'
+														d='M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z'
+														clipRule='evenodd'
+													/>
+												</svg>
+											</button>
+
+											<button className='p-2 bg-white/20 hover:bg-white/30 rounded-lg transition-all backdrop-blur-sm border border-white/20 hover:scale-105 group-hover:bg-white/40'>
+												<svg
+													className='w-4 h-4 text-white'
+													fill='currentColor'
+													viewBox='0 0 20 20'>
+													<path
+														fillRule='evenodd'
+														d='M10.293 9.293a1 1 0 011.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 111.414-1.414L9 10.586l1.293-1.293z'
+														clipRule='evenodd'
+													/>
+												</svg>
+											</button>
+										</div>
+									</div>
+								</div>
 							</div>
 						) : msg.image ? (
 							<img
@@ -250,7 +296,6 @@ const ChatContainer = () => {
 								alt='Gallery icon'
 							/>
 						</label>
-						{/* 🎤 МИКРОФОН - ИСПРАВЛЕННЫЙ */}
 						<button
 							type='button'
 							onMouseDown={startRecording}
