@@ -2,10 +2,10 @@ import Sidebar from "../components/Sidebar.jsx"
 import ChatContainer from "../components/ChatContainer.jsx"
 import RightSidebar from "../components/RightSidebar.jsx"
 import { useContext } from "react"
-import { ChatContext } from "../../context/ChatContext.jsx"
+import { useChat } from "../../context/ChatContext.jsx"
 
 const Home = () => {
-	const { selectedUser } = useContext(ChatContext)
+	const { selectedUser } = useChat()   
 
 	return (
 		<div className='border w-full h-screen sm:px-[15%] sm:py-[5%]'>

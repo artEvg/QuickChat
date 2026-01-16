@@ -1,7 +1,7 @@
 import { useContext, useState } from "react"
-import { useNavigate } from "react-router-dom" // ← ДОБАВЬ
+import { useNavigate } from "react-router-dom"
 import assets from "../assets/assets.js"
-import { AuthContext } from "../../context/AuthContext.jsx"
+import { useAuth } from "../../context/AuthContext.jsx"
 
 const Login = () => {
 	const [currState, setCurrState] = useState("Регистрация")
@@ -10,8 +10,8 @@ const Login = () => {
 	const [password, setPassword] = useState("")
 	const [bio, setBio] = useState("")
 	const [isDataSubmitted, setIsDataSubmitted] = useState(false)
-	const { login } = useContext(AuthContext)
-	const navigate = useNavigate() // ← ДОБАВЬ
+	const { login } = useAuth()
+	const navigate = useNavigate()
 
 	const onSubmitHandler = event => {
 		event.preventDefault()
