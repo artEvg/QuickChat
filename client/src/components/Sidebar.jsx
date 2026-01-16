@@ -18,42 +18,50 @@ const Sidebar = () => {
 
 	const [input, setInput] = useState("")
 	const [showMenu, setShowMenu] = useState(false)
+	const [chatHistory, setChatHistory] = useState(new Set())
 
 	const navigate = useNavigate()
-
 	const usersWithChat = useMemo(
 		() =>
 			users.filter(user => {
 				if (user._id === authUser?._id) return false
+
 				const hasUnseenMessages = unseenMessages[user._id] > 0
+				const hasChatHistory = chatHistory.has(user._id)
 				const isSelectedUser = selectedUser?._id === user._id
 
-				return hasUnseenMessages || isSelectedUser
+				return hasUnseenMessages || hasChatHistory || isSelectedUser
 			}),
-		[users, unseenMessages, selectedUser, authUser]
+		[users, unseenMessages, chatHistory, selectedUser, authUser]
 	)
 
 	const allUsersForSearch = useMemo(
 		() => users.filter(user => user._id !== authUser?._id),
 		[users, authUser]
 	)
+
 	const filteredUsers = useMemo(() => {
 		if (!input.trim()) {
 			return usersWithChat
 		}
 
 		const searchTerm = input.toLowerCase()
-
 		const chatMatches = usersWithChat.filter(user =>
 			user.fullName.toLowerCase().includes(searchTerm)
 		)
-
 		const otherMatches = allUsersForSearch
 			.filter(user => !usersWithChat.some(u => u._id === user._id))
 			.filter(user => user.fullName.toLowerCase().includes(searchTerm))
 
 		return [...chatMatches, ...otherMatches]
 	}, [input, usersWithChat, allUsersForSearch])
+
+	const handleUserSelect = user => {
+		setSelectedUser(user)
+		setUnseenMessages(prev => ({ ...prev, [user._id]: 0 }))
+		setChatHistory(prev => new Set([...prev, user._id]))
+		if (input) setInput("")
+	}
 
 	useEffect(() => {
 		getUsers()
@@ -125,11 +133,7 @@ const Sidebar = () => {
 
 						return (
 							<div
-								onClick={() => {
-									setSelectedUser(user)
-									setUnseenMessages(prev => ({ ...prev, [user._id]: 0 }))
-									if (input) setInput("")
-								}}
+								onClick={() => handleUserSelect(user)} // ✅ Используем новую функцию
 								key={user._id}
 								className={`relative flex items-center gap-2 p-2 pl-4 rounded cursor-pointer max-sm:text-sm transition-all duration-200 hover:bg-[#282142]/30 ${
 									selectedUser?._id === user._id ? "bg-[#282142]/50" : ""
