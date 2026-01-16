@@ -20,7 +20,7 @@ const Sidebar = () => {
 	const [input, setInput] = useState("")
 	const [showMenu, setShowMenu] = useState(false)
 
-	// 🔥 localStorage для истории чатов
+	// 🔥 localStorage для истории чатов - ТОЛЬКО кому писал
 	const [usersYouWroteTo, setUsersYouWroteTo] = useState(() => {
 		try {
 			const saved = localStorage.getItem("chatHistory")
@@ -44,7 +44,7 @@ const Sidebar = () => {
 		}
 	}, [usersYouWroteTo])
 
-	// ✅ 1. Пользователи с перепиской
+	// ✅ ТОЛЬКО пользователи с перепиской
 	const usersWithYourMessages = useMemo(() => {
 		console.log("🔍 DEBUG:", {
 			totalUsers: users.length,
@@ -55,41 +55,48 @@ const Sidebar = () => {
 		return users.filter(user => {
 			if (!user._id || user._id === authUser?._id) return false
 
+			// 1️⃣ Непрочитанные от них
 			const hasUnseenFromThem = unseenMessages[user._id] > 0
+			// 2️⃣ Ты им писал
 			const youWroteToThem = usersYouWroteTo.has(user._id)
+			// 3️⃣ Текущий чат
 			const isCurrentChat = selectedUser?._id === user._id
 
 			return hasUnseenFromThem || youWroteToThem || isCurrentChat
 		})
 	}, [users, unseenMessages, usersYouWroteTo, selectedUser, authUser])
 
-	// ✅ 2. Все пользователи для поиска
+	// ✅ Все пользователи для поиска
 	const allUsersForSearch = useMemo(
 		() => users.filter(user => user._id !== authUser?._id),
 		[users, authUser]
 	)
 
-	// ✅ 3. Фильтр поиска
+	// ✅ УМНЫЙ поиск: переписка > все
 	const filteredUsers = useMemo(() => {
 		if (!input.trim()) return usersWithYourMessages
 
 		const searchTerm = input.toLowerCase()
+		// 1. Ищем в переписке ПЕРВЫМ приоритетом
 		const chatMatches = usersWithYourMessages.filter(user =>
 			user.fullName?.toLowerCase().includes(searchTerm)
 		)
-		const otherMatches = allUsersForSearch
-			.filter(user => !usersWithYourMessages.some(u => u._id === user._id))
-			.filter(user => user.fullName?.toLowerCase().includes(searchTerm))
 
-		return [...chatMatches, ...otherMatches]
+		if (chatMatches.length > 0) return chatMatches
+
+		// 2. Если нет в переписке - ищем среди всех
+		return allUsersForSearch.filter(user =>
+			user.fullName?.toLowerCase().includes(searchTerm)
+		)
 	}, [input, usersWithYourMessages, allUsersForSearch])
 
-	// ✅ Обработка клика
+	// ✅ Клик по пользователю = добавляем в переписку
 	const handleSelectUser = useCallback(
 		user => {
 			setSelectedUser(user)
 			setUnseenMessages(prev => ({ ...prev, [user._id]: 0 }))
 
+			// ✅ Добавляем в историю ПРИ КЛИКЕ
 			if (!usersYouWroteTo.has(user._id)) {
 				setUsersYouWroteTo(prev => new Set([...prev, user._id]))
 			}
@@ -99,10 +106,24 @@ const Sidebar = () => {
 		[input, usersYouWroteTo, setSelectedUser, setUnseenMessages]
 	)
 
+	// ✅ Проверяем ТВОИ сообщения в чате
+	useEffect(() => {
+		if (messages.length > 0 && selectedUser) {
+			const hasYourMessages = messages.some(
+				msg => msg.senderId === authUser?._id
+			)
+			if (hasYourMessages && !usersYouWroteTo.has(selectedUser._id)) {
+				setUsersYouWroteTo(prev => new Set([...prev, selectedUser._id]))
+			}
+		}
+	}, [messages, selectedUser, authUser, usersYouWroteTo])
+
 	// ✅ Загрузка пользователей
 	useEffect(() => {
-		getUsers()
-	}, [])
+		if (authUser?._id) {
+			getUsers()
+		}
+	}, [authUser?._id, getUsers])
 
 	return (
 		<div
@@ -170,13 +191,13 @@ const Sidebar = () => {
 							<div
 								key={user._id}
 								onClick={() => handleSelectUser(user)}
-								className={`relative flex items-center gap-2 p-2 pl-4 rounded cursor-pointer max-sm:text-sm transition-all hover:bg-[#282142]/30 ${
+								className={`relative flex items-center gap-2 p-2 pl-4 rounded cursor-pointer max-sm:text-sm transition-all duration-200 hover:bg-[#282142]/30 ${
 									selectedUser?._id === user._id ? "bg-[#282142]/50" : ""
 								}`}>
 								<img
 									src={user?.profilePic || assets.avatar_icon}
 									alt='user'
-									className='w-[35px] aspect-[1/1] rounded-full ring-1 ring-transparent hover:ring-violet-500/50'
+									className='w-[35px] aspect-[1/1] rounded-full ring-1 ring-transparent hover:ring-violet-500/50 transition-all'
 								/>
 								<div className='flex flex-col leading-5 flex-1'>
 									<p className='font-medium'>{user.fullName}</p>
@@ -207,7 +228,7 @@ const Sidebar = () => {
 				) : (
 					<div className='flex flex-col items-center justify-center text-gray-400 text-sm py-10'>
 						<p>Нет переписок</p>
-						<p className='mt-1'>Напишите первому!</p>
+						<p className='mt-1'>Начните новый чат</p>
 					</div>
 				)}
 			</div>
