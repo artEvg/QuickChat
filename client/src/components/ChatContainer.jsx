@@ -13,12 +13,12 @@ const ChatContainer = () => {
 	const scrollEnd = useRef()
 	const [input, setInput] = useState("")
 
-	// 🎤 Голосовые сообщения
 	const [isRecording, setIsRecording] = useState(false)
 	const [mediaRecorder, setMediaRecorder] = useState(null)
 	const chunks = useRef([])
 
-	// 🔥 АВТО-ОБНОВЛЕНИЕ каждые 3 сек
+	const audioRefs = useRef({})
+
 	const pollMessages = useCallback(async () => {
 		if (selectedUser?._id) {
 			try {
@@ -39,7 +39,6 @@ const ChatContainer = () => {
 		}
 	}, [pollMessages])
 
-	// 🎤 НАЧАЛО записи
 	const startRecording = async () => {
 		try {
 			const stream = await navigator.mediaDevices.getUserMedia({
@@ -86,7 +85,6 @@ const ChatContainer = () => {
 			setIsRecording(true)
 		} catch (error) {
 			toast.error("Микрофон недоступен")
-			console.error("Recording error:", error)
 		}
 	}
 
@@ -98,9 +96,37 @@ const ChatContainer = () => {
 		}
 	}
 
+	const togglePlayPause = msgId => {
+		const audio = audioRefs.current[msgId]
+		if (!audio) return
+
+		if (audio.paused) {
+			audio.play().catch(e => console.log("Play error:", e))
+		} else {
+			audio.pause()
+		}
+	}
+
+	const rewind = (msgId, seconds) => {
+		const audio = audioRefs.current[msgId]
+		if (audio) {
+			audio.currentTime = Math.max(
+				0,
+				Math.min(audio.duration || 0, (audio.currentTime || 0) + seconds)
+			)
+		}
+	}
+
+	const formatTime = seconds => {
+		if (!seconds) return "0:00"
+		const mins = Math.floor(seconds / 60)
+		const secs = Math.floor(seconds % 60)
+		return `${mins}:${secs.toString().padStart(2, "0")}`
+	}
+
 	const handleSendMessage = async e => {
 		e.preventDefault()
-		if (input.trim() === "") return null
+		if (input.trim() === "") return
 
 		try {
 			await sendMessage({ text: input.trim() })
@@ -165,52 +191,75 @@ const ChatContainer = () => {
 				/>
 			</div>
 			<div className='flex flex-col items-center h-[calc(100%-120px)] overflow-y-scroll p-3 pb-6'>
-				{messages.map((msg, index) => (
-					<div
-						key={msg._id || `msg-${index}`}
-						className={`flex w-full items-end gap-2 justify-end ${
-							msg.senderId !== authUser._id && "flex-row-reverse"
-						}`}>
-						{msg.audio ? (
-							<div className='w-[230px] p-3 bg-violet-500/30 rounded-lg mb-8'>
-								<div className='bg-white/10 backdrop-blur-sm rounded-xl p-4 border border-white/20 hover:bg-white/15 transition-all group'>
-									{/* 🎵 Аудиоволна + время */}
-									<div className='flex items-center justify-between mb-3'>
-										<div className='flex items-center gap-1'>
-											<div className='w-1 h-1.5 bg-gradient-to-r from-violet-400 to-purple-500 rounded-full animate-pulse' />
-											<div className='w-0.5 h-1 bg-violet-400/70 rounded-full mx-0.5' />
-											<div className='w-1 h-1.5 bg-purple-500/70 rounded-full mx-0.5' />
-											<div className='w-0.5 h-1 bg-violet-400/50 rounded-full animate-pulse animation-delay-100' />
-										</div>
-										<span className='text-xs text-gray-300 font-mono tracking-wider'>
-											0:{msg.audioDuration || "08"}
-										</span>
-									</div>
-
-									{/* 📊 Прогресс бар */}
-									<div className='w-full bg-white/10 rounded-full h-1.5 mb-4 overflow-hidden group-hover:bg-white/20 transition-all'>
-										<div className='h-full bg-gradient-to-r from-violet-400 via-purple-500 to-pink-500 rounded-full w-[45%] shadow-sm transition-all duration-500 ease-in-out' />
-									</div>
-
-									{/* 🎮 Контролы */}
-									<div className='flex items-center justify-between'>
-										<button className='p-2 bg-white/20 hover:bg-white/30 rounded-lg transition-all backdrop-blur-sm border border-white/20 hover:scale-105 group-hover:bg-white/40'>
-											<svg
-												className='w-4 h-4 text-white'
-												fill='currentColor'
-												viewBox='0 0 20 20'>
-												<path
-													fillRule='evenodd'
-													d='M18 10a8 8 0 11-16 0 8 8 0 0116 0zM12.707 8.707a1 1 0 10-1.414-1.414L11 10.586 9.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z'
-													clipRule='evenodd'
+				{messages.map((msg, index) => {
+					const msgId = msg._id || `msg-${index}`
+					return (
+						<div
+							key={msgId}
+							className={`flex w-full items-end gap-2 justify-end ${
+								msg.senderId !== authUser._id && "flex-row-reverse"
+							}`}>
+							{msg.audio ? (
+								<div className='w-[230px] p-3 bg-violet-500/30 rounded-lg mb-8'>
+									<div className='bg-white/10 backdrop-blur-sm rounded-xl p-4 border border-white/20 hover:bg-white/15 transition-all'>
+										{/* 🎵 ВОЛНА + ВРЕМЯ */}
+										<div className='flex items-center justify-between mb-3'>
+											<div className='flex items-center gap-1'>
+												<div className='w-1 h-2 bg-gradient-to-r from-violet-400 to-purple-500 rounded-full animate-bounce [animation-duration:0.6s]' />
+												<div
+													className='w-0.5 h-1.5 bg-violet-400/70 rounded-full mx-0.5 animate-bounce [animation-duration:0.6s]'
+													style={{ animationDelay: "0.1s" }}
 												/>
-											</svg>
-										</button>
+												<div
+													className='w-1 h-2 bg-purple-500/70 rounded-full mx-0.5 animate-bounce [animation-duration:0.6s]'
+													style={{ animationDelay: "0.2s" }}
+												/>
+											</div>
+											<span className='text-xs text-gray-300 font-mono'>
+												{formatTime(msg.audioDuration || 8)}
+											</span>
+										</div>
 
-										<div className='flex items-center gap-3'>
-											<button className='w-10 h-10 bg-gradient-to-r from-violet-500/90 to-purple-600/90 hover:from-violet-600 hover:to-purple-700 rounded-xl shadow-lg hover:shadow-xl transition-all hover:scale-[1.05] backdrop-blur-sm border border-white/30 flex items-center justify-center'>
+										{/* 📊 ПРОГРЕСС + АУДИО */}
+										<div className='relative mb-4'>
+											<audio
+												ref={el => {
+													if (el) audioRefs.current[msgId] = el
+												}}
+												src={msg.audio}
+												preload='metadata'
+												className='absolute inset-0 w-full h-full opacity-0 pointer-events-none'
+												onEnded={() => {}}
+											/>
+											<div className='w-full bg-white/10 rounded-full h-2 overflow-hidden cursor-pointer hover:bg-white/20 transition-all group'>
+												<div className='h-full bg-gradient-to-r from-violet-400 to-purple-500 rounded-full w-[45%] relative shadow-sm transition-all duration-300' />
+											</div>
+										</div>
+
+										{/* 🎮 КНОПКИ */}
+										<div className='flex items-center justify-center gap-4'>
+											<button
+												onClick={() => rewind(msgId, -10)}
+												className='w-10 h-10 bg-white/20 hover:bg-white/40 rounded-xl flex items-center justify-center transition-all backdrop-blur-sm border border-white/20 hover:scale-110 hover:shadow-lg'
+												title='-10s'>
 												<svg
-													className='w-5 h-5 text-white drop-shadow-sm'
+													className='w-4 h-4 text-white'
+													fill='currentColor'
+													viewBox='0 0 20 20'>
+													<path
+														fillRule='evenodd'
+														d='M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z'
+														clipRule='evenodd'
+													/>
+												</svg>
+											</button>
+
+											<button
+												onClick={() => togglePlayPause(msgId)}
+												className='w-16 h-16 bg-gradient-to-r from-violet-500 to-purple-600 hover:from-violet-600 hover:to-purple-700 rounded-2xl flex items-center justify-center shadow-xl hover:shadow-2xl transition-all duration-200 hover:scale-110 backdrop-blur-sm border-2 border-white/30 group'
+												title='Play/Pause'>
+												<svg
+													className='w-8 h-8 text-white drop-shadow-lg transition-transform group-hover:scale-110'
 													fill='currentColor'
 													viewBox='0 0 20 20'>
 													<path
@@ -221,14 +270,17 @@ const ChatContainer = () => {
 												</svg>
 											</button>
 
-											<button className='p-2 bg-white/20 hover:bg-white/30 rounded-lg transition-all backdrop-blur-sm border border-white/20 hover:scale-105 group-hover:bg-white/40'>
+											<button
+												onClick={() => rewind(msgId, 10)}
+												className='w-10 h-10 bg-white/20 hover:bg-white/40 rounded-xl flex items-center justify-center transition-all backdrop-blur-sm border border-white/20 hover:scale-110 hover:shadow-lg'
+												title='+10s'>
 												<svg
 													className='w-4 h-4 text-white'
 													fill='currentColor'
 													viewBox='0 0 20 20'>
 													<path
 														fillRule='evenodd'
-														d='M10.293 9.293a1 1 0 011.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 111.414-1.414L9 10.586l1.293-1.293z'
+														d='M7.293 10.293a1 1 0 011.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 111.414-1.414L6 10.586l1.293-1.293z'
 														clipRule='evenodd'
 													/>
 												</svg>
@@ -236,39 +288,39 @@ const ChatContainer = () => {
 										</div>
 									</div>
 								</div>
+							) : msg.image ? (
+								<img
+									className='w-[230px] border-gray-700 rounded-lg overflow-hidden mb-8'
+									src={msg.image}
+									alt='Image'
+								/>
+							) : (
+								<p
+									className={`p-2 w-[200px] md:text-sm font-light rounded-lg mb-8 break-all bg-violet-500/30 text-white ${
+										msg.senderId !== authUser._id
+											? "rounded-br-none"
+											: "rounded-bl-none"
+									}`}>
+									{msg.text}
+								</p>
+							)}
+							<div className='text-center text-xs'>
+								<img
+									className='w-7 rounded-full'
+									src={
+										msg.senderId === authUser._id
+											? authUser?.profilePic || assets.avatar_icon
+											: selectedUser.profilePic || assets.avatar_icon
+									}
+									alt='profile image'
+								/>
+								<p className='text-gray-500'>
+									{formatMessageTime(msg.createdAt)}
+								</p>
 							</div>
-						) : msg.image ? (
-							<img
-								className='w-[230px] border-gray-700 rounded-lg overflow-hidden mb-8'
-								src={msg.image}
-								alt='Image'
-							/>
-						) : (
-							<p
-								className={`p-2 w-[200px] md:text-sm font-light rounded-lg mb-8 break-all bg-violet-500/30 text-white ${
-									msg.senderId !== authUser._id
-										? "rounded-br-none"
-										: "rounded-bl-none"
-								}`}>
-								{msg.text}
-							</p>
-						)}
-						<div className='text-center text-xs'>
-							<img
-								className='w-7 rounded-full'
-								src={
-									msg.senderId === authUser._id
-										? authUser?.profilePic || assets.avatar_icon
-										: selectedUser.profilePic || assets.avatar_icon
-								}
-								alt='profile image'
-							/>
-							<p className='text-gray-500'>
-								{formatMessageTime(msg.createdAt)}
-							</p>
 						</div>
-					</div>
-				))}
+					)
+				})}
 				<div ref={scrollEnd}></div>
 			</div>
 			<form onSubmit={handleSendMessage}>
