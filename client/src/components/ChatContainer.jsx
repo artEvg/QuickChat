@@ -266,13 +266,14 @@ const ChatContainer = () => {
 								msg.senderId !== authUser._id && "flex-row-reverse"
 							}`}>
 							{msg.audio ? (
-								// 🎵 ШИРОКИЙ КОМПАКТНЫЙ ПЛЕЕР (280px × 100px)
-								<div className='w-[280px] h-[100px] p-4 bg-violet-500/30 rounded-xl mb-6'>
-									<div className='bg-white/10 backdrop-blur-sm rounded-2xl p-3 border border-white/20 hover:bg-white/15 transition-all h-full flex flex-col justify-between'>
-										{/* 🎵 Волна + время */}
-										<div className='flex items-center justify-between mb-2'>
+								// 🎵 НОВЫЙ ЛЕЙАУТ - кнопка справа на одной линии
+								<div className='flex items-end gap-2 w-[280px] mb-6'>
+									{/* 🎵 Контейнер плеера (слева) */}
+									<div className='flex-1 bg-white/10 backdrop-blur-sm rounded-xl p-3 border border-white/20 hover:bg-white/15 transition-all min-h-[70px] flex flex-col justify-center'>
+										{/* Волна + время */}
+										<div className='flex items-center justify-between mb-1'>
 											<div
-												className={`flex items-center gap-0.5 w-full sm:w-24 transition-all ${
+												className={`flex items-center gap-0.5 w-20 transition-all ${
 													playing ? "animate-pulse" : ""
 												}`}>
 												<div
@@ -308,59 +309,57 @@ const ChatContainer = () => {
 											</span>
 										</div>
 
-										{/* 📊 Компактный прогресс */}
-										<div className='mb-3'>
-											<div className='w-full bg-white/10 rounded-full h-[3px] overflow-hidden cursor-pointer hover:bg-white/20 transition-all group'>
-												<div
-													className='h-full bg-gradient-to-r from-violet-400 via-purple-500 to-pink-500 rounded-full shadow-sm transition-all duration-300 ease-linear'
-													style={{ width: `${progress}%` }}
-												/>
-											</div>
+										{/* 📊 Прогресс */}
+										<div className='w-full bg-white/10 rounded-full h-[3px] overflow-hidden cursor-pointer hover:bg-white/20 transition-all group'>
+											<div
+												className='h-full bg-gradient-to-r from-violet-400 via-purple-500 to-pink-500 rounded-full shadow-sm transition-all duration-300 ease-linear'
+												style={{ width: `${progress}%` }}
+											/>
 										</div>
-
-										{/* 🎮 Большая кнопка */}
-										<div className='flex justify-center'>
-											<button
-												onClick={() => togglePlayPause(msgId)}
-												className={`w-14 h-14 rounded-xl flex items-center justify-center shadow-lg transition-all duration-200 hover:scale-110 backdrop-blur-sm border ${
-													playing
-														? "bg-gradient-to-r from-red-500 to-pink-500 hover:from-red-600 hover:to-pink-600 border-red-400/50 shadow-red-500/25"
-														: "bg-gradient-to-r from-violet-500 to-purple-600 hover:from-violet-600 hover:to-purple-700 border-white/30 shadow-purple-500/25"
-												}`}
-												title={playing ? "Pause" : "Play"}>
-												<svg
-													className='w-6 h-6 text-white drop-shadow-md transition-transform hover:scale-110'
-													fill='currentColor'
-													viewBox='0 0 20 20'>
-													{playing ? (
-														// ⏸️ PAUSE icon
-														<path
-															fillRule='evenodd'
-															d='M18 10a8 8 0 11-16 0 8 8 0 0116 0zM7 8a1 1 0 012 0v4a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v4a1 1 0 102 0V8a1 1 0 00-1-1z'
-															clipRule='evenodd'
-														/>
-													) : (
-														// ▶️ PLAY icon
-														<path
-															fillRule='evenodd'
-															d='M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z'
-															clipRule='evenodd'
-														/>
-													)}
-												</svg>
-											</button>
-										</div>
-
-										{/* 🎵 Скрытый аудио элемент */}
-										<audio
-											ref={el => {
-												if (el) audioRefs.current[msgId] = el
-											}}
-											src={msg.audio}
-											preload='metadata'
-											className='absolute inset-0 w-full h-full opacity-0 pointer-events-none'
-										/>
 									</div>
+
+									{/* 🎮 КРУГЛАЯ КНОПКА СПРАВА */}
+									<div className='flex-shrink-0'>
+										<button
+											onClick={() => togglePlayPause(msgId)}
+											className={`w-12 h-12 rounded-full flex items-center justify-center shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-110 backdrop-blur-sm border-2 ${
+												playing
+													? "bg-gradient-to-r from-red-500 to-pink-500 hover:from-red-600 hover:to-pink-600 border-red-400/50 shadow-red-500/25"
+													: "bg-gradient-to-r from-violet-500 to-purple-600 hover:from-violet-600 hover:to-purple-700 border-white/30 shadow-purple-500/25"
+											}`}
+											title={playing ? "Pause" : "Play"}>
+											<svg
+												className='w-5 h-5 text-white drop-shadow-md transition-transform hover:scale-110'
+												fill='currentColor'
+												viewBox='0 0 20 20'>
+												{playing ? (
+													// ⏸️ PAUSE icon
+													<path
+														fillRule='evenodd'
+														d='M18 10a8 8 0 11-16 0 8 8 0 0116 0zM7 8a1 1 0 012 0v4a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v4a1 1 0 102 0V8a1 1 0 00-1-1z'
+														clipRule='evenodd'
+													/>
+												) : (
+													// ▶️ PLAY icon
+													<path
+														fillRule='evenodd'
+														d='M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z'
+														clipRule='evenodd'
+													/>
+												)}
+											</svg>
+										</button>
+									</div>
+
+									{/* 🎵 Скрытый аудио элемент */}
+									<audio
+										ref={el => {
+											if (el) audioRefs.current[msgId] = el
+										}}
+										src={msg.audio}
+										preload='metadata'
+										className='absolute opacity-0 pointer-events-none'
+									/>
 								</div>
 							) : msg.image ? (
 								<img
