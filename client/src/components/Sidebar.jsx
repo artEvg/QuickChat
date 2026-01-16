@@ -1,4 +1,4 @@
-import { useContext, useState, useEffect, useMemo } from "react"
+import { useContext, useState, useEffect, useMemo, useCallback } from "react"
 import assets from "../assets/assets.js"
 import { useNavigate } from "react-router-dom"
 import { AuthContext } from "../../context/AuthContext"
@@ -18,22 +18,20 @@ const Sidebar = () => {
 
 	const [input, setInput] = useState("")
 	const [showMenu, setShowMenu] = useState(false)
-	const [chatHistory, setChatHistory] = useState(new Set())
+	const [recentChats, setRecentChats] = useState(new Set())
 
 	const navigate = useNavigate()
-	const usersWithChat = useMemo(
-		() =>
-			users.filter(user => {
-				if (user._id === authUser?._id) return false
 
-				const hasUnseenMessages = unseenMessages[user._id] > 0
-				const hasChatHistory = chatHistory.has(user._id)
-				const isSelectedUser = selectedUser?._id === user._id
+	const usersWithChat = useMemo(() => {
+		return users.filter(user => {
+			if (user._id === authUser?._id) return false
+			const hasUnseen = unseenMessages[user._id] > 0
+			const hasRecentChat = recentChats.has(user._id)
+			const isSelected = selectedUser?._id === user._id
 
-				return hasUnseenMessages || hasChatHistory || isSelectedUser
-			}),
-		[users, unseenMessages, chatHistory, selectedUser, authUser]
-	)
+			return hasUnseen || hasRecentChat || isSelected
+		})
+	}, [users, unseenMessages, recentChats, selectedUser, authUser])
 
 	const allUsersForSearch = useMemo(
 		() => users.filter(user => user._id !== authUser?._id),
@@ -41,9 +39,7 @@ const Sidebar = () => {
 	)
 
 	const filteredUsers = useMemo(() => {
-		if (!input.trim()) {
-			return usersWithChat
-		}
+		if (!input.trim()) return usersWithChat
 
 		const searchTerm = input.toLowerCase()
 		const chatMatches = usersWithChat.filter(user =>
@@ -56,22 +52,31 @@ const Sidebar = () => {
 		return [...chatMatches, ...otherMatches]
 	}, [input, usersWithChat, allUsersForSearch])
 
-	const handleUserSelect = user => {
-		setSelectedUser(user)
-		setUnseenMessages(prev => ({ ...prev, [user._id]: 0 }))
-		setChatHistory(prev => new Set([...prev, user._id]))
-		if (input) setInput("")
-	}
+	const handleUserInteraction = useCallback(
+		user => {
+			setSelectedUser(user)
+			setUnseenMessages(prev => ({ ...prev, [user._id]: 0 }))
+			setRecentChats(prev => new Set([...prev, user._id]))
+			if (input) setInput("")
+		},
+		[setSelectedUser, setUnseenMessages, input]
+	)
+	useEffect(() => {
+		if (selectedUser && !recentChats.has(selectedUser._id)) {
+			setRecentChats(prev => new Set([...prev, selectedUser._id]))
+		}
+	}, [selectedUser, recentChats])
 
 	useEffect(() => {
 		getUsers()
-	}, [onlineUsers])
+	}, [onlineUsers, getUsers])
 
 	return (
 		<div
 			className={`bg-[#8185B2]/10 h-full p-5 rounded-r-xl overflow-y-scroll text-white ${
 				selectedUser ? "max-md:hidden" : ""
 			}`}>
+			{/* Header */}
 			<div className='pb-5'>
 				<div className='flex justify-between items-center'>
 					<img
@@ -130,10 +135,9 @@ const Sidebar = () => {
 				{filteredUsers.length > 0 ? (
 					filteredUsers.map(user => {
 						const hasChat = usersWithChat.some(u => u._id === user._id)
-
 						return (
 							<div
-								onClick={() => handleUserSelect(user)} // ✅ Используем новую функцию
+								onClick={() => handleUserInteraction(user)}
 								key={user._id}
 								className={`relative flex items-center gap-2 p-2 pl-4 rounded cursor-pointer max-sm:text-sm transition-all duration-200 hover:bg-[#282142]/30 ${
 									selectedUser?._id === user._id ? "bg-[#282142]/50" : ""
