@@ -9,12 +9,26 @@ export const ChatProvider = ({ children }) => {
 	const [users, setUsers] = useState([])
 	const [selectedUser, setSelectedUser] = useState(null)
 	const [unseenMessages, setUnseenMessages] = useState({})
-	const { api, socket } = useContext(AuthContext) // ✅ api вместо axios
+	const [chats, setChats] = useState([]) // ✅ chats state
+	const { api, socket, authUser } = useContext(AuthContext) // ✅ добавлен authUser
+
+	// ✅ ИСПРАВЛЕНО: Загрузка переписок пользователя
+	const getChats = async () => {
+		try {
+			const { data } = await api.get(`/messages/chats/${authUser?._id}`)
+			if (data.success) {
+				setChats(data.chats || [])
+			}
+		} catch (error) {
+			console.error("Ошибка загрузки чатов:", error)
+			toast.error(error.response?.data?.message || "Ошибка загрузки чатов")
+		}
+	}
 
 	// Получение пользователей
 	const getUsers = async () => {
 		try {
-			const { data } = await api.get("/messages/users") // ✅ api с правильным baseURL
+			const { data } = await api.get("/messages/users")
 			if (data.success) {
 				setUsers(data.users)
 				setUnseenMessages(data.unseenMessages)
@@ -73,6 +87,13 @@ export const ChatProvider = ({ children }) => {
 		if (socket) socket.off("newMessage")
 	}
 
+	// ✅ Загружаем чаты при монтировании и изменении пользователя
+	useEffect(() => {
+		if (authUser?._id) {
+			getChats()
+		}
+	}, [authUser])
+
 	useEffect(() => {
 		subscribeToMessages()
 		return unsubscribeFromMessages
@@ -83,7 +104,9 @@ export const ChatProvider = ({ children }) => {
 		users,
 		selectedUser,
 		unseenMessages,
+		chats,
 		getUsers,
+		getChats,
 		getMessages,
 		sendMessage,
 		setSelectedUser,
