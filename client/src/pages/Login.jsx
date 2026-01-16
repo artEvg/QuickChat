@@ -1,4 +1,5 @@
 import { useContext, useState } from "react"
+import { useNavigate } from "react-router-dom" // ← ДОБАВЬ
 import assets from "../assets/assets.js"
 import { AuthContext } from "../../context/AuthContext.jsx"
 
@@ -10,6 +11,7 @@ const Login = () => {
 	const [bio, setBio] = useState("")
 	const [isDataSubmitted, setIsDataSubmitted] = useState(false)
 	const { login } = useContext(AuthContext)
+	const navigate = useNavigate() // ← ДОБАВЬ
 
 	const onSubmitHandler = event => {
 		event.preventDefault()
@@ -46,6 +48,7 @@ const Login = () => {
 						/>
 					)}
 				</h2>
+
 				{currState === "Регистрация" && !isDataSubmitted && (
 					<input
 						onChange={e => setFullName(e.target.value)}
@@ -88,9 +91,21 @@ const Login = () => {
 						value={bio}></textarea>
 				)}
 
+				{/* 🔥 КНОПКА "ЗАБЫЛИ ПАРОЛЬ?" - ТОЛЬКО при логине */}
+				{currState === "Авторизация" && !isDataSubmitted && (
+					<div className='text-center'>
+						<button
+							type='button'
+							onClick={() => navigate("/reset-password")}
+							className='text-sm text-violet-400 hover:text-violet-300 transition-colors font-medium underline'>
+							Забыли пароль?
+						</button>
+					</div>
+				)}
+
 				<button
 					type='submit'
-					className='py-3 bg-gradient-to-r from-purple-400 to-violet-600 text-white rounded-md cursor-pointer'>
+					className='py-3 bg-gradient-to-r from-purple-400 to-violet-600 text-white rounded-md cursor-pointer hover:from-purple-500 hover:to-violet-700 transition-all'>
 					{currState === "Регистрация" ? "Создать Аккаунт" : "Войти в Аккаунт"}
 				</button>
 
@@ -107,7 +122,7 @@ const Login = () => {
 									setCurrState("Авторизация")
 									setIsDataSubmitted(false)
 								}}
-								className='font-medium text-violet-500 cursor-pointer'>
+								className='font-medium text-violet-500 cursor-pointer hover:text-violet-400 transition-colors'>
 								Вход
 							</span>
 						</p>
@@ -118,7 +133,7 @@ const Login = () => {
 								onClick={() => {
 									setCurrState("Регистрация")
 								}}
-								className='font-medium text-violet-500 cursor-pointer'>
+								className='font-medium text-violet-500 cursor-pointer hover:text-violet-400 transition-colors'>
 								Создать аккаунт
 							</span>
 						</p>

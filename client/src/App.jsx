@@ -6,6 +6,7 @@ import assets from "./assets/assets.js"
 import { Toaster } from "react-hot-toast"
 import { useContext } from "react"
 import { AuthContext } from "../context/AuthContext"
+import ResetPassword from "./pages/ResetPassword.jsx"
 
 const App = () => {
 	const { authUser } = useContext(AuthContext)
@@ -24,6 +25,10 @@ const App = () => {
 				<Route
 					path='/profile'
 					element={authUser ? <Profile /> : <Navigate to='/login' />}
+				/>
+				<Route
+					path='/reset-password'
+					element={<ResetPassword />}
 				/>
 			</Routes>
 		</div>
