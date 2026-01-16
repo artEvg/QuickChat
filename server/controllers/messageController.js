@@ -35,7 +35,6 @@ export const getUsersForSidebar = async (req, res) => {
 }
 
 // Получение всех сообщений для пользователя
-
 export const getMessages = async (req, res) => {
 	try {
 		const { id: selectedUserId } = req.params
@@ -75,10 +74,11 @@ export const markMessageAsSeen = async (req, res) => {
 	}
 }
 
-// Отправка сообщения пользователю
+// ✅ ИСПРАВЛЕННАЯ отправка сообщения
 export const sendMessage = async (req, res) => {
 	try {
-		const { text, image, audio } = req.body // ✅ audio добавлен
+		// ✅ audioDuration ДОБАВЛЕН
+		const { text, image, audio, audioDuration } = req.body
 		const receiverId = req.params.id
 		const senderId = req.user._id
 		let imageUrl
@@ -93,7 +93,8 @@ export const sendMessage = async (req, res) => {
 			receiverId,
 			text,
 			image: imageUrl,
-			audio, // ✅ audio поле
+			audio,
+			audioDuration, // ✅ Теперь сохраняется
 		})
 
 		const receiverSocketId = userSocketMap[receiverId]

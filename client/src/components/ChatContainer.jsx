@@ -39,29 +39,54 @@ const ChatContainer = () => {
 		}
 	}, [pollMessages])
 
-	// 🎤 НАЧАЛО записи
+	// 🎤 НАЧАЛО записи - ИСПРАВЛЕННОЕ
 	const startRecording = async () => {
 		try {
-			const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
-			const recorder = new MediaRecorder(stream)
+			const stream = await navigator.mediaDevices.getUserMedia({
+				audio: {
+					echoCancellation: true,
+					noiseSuppression: true,
+					sampleRate: 44100,
+				},
+			})
+
+			const recorder = new MediaRecorder(stream, {
+				mimeType: "audio/webm;codecs=opus",
+			})
+
 			chunks.current = []
 
-			recorder.ondataavailable = e => chunks.current.push(e.data)
+			recorder.ondataavailable = e => {
+				if (e.data.size > 0) chunks.current.push(e.data)
+			}
+
 			recorder.onstop = async () => {
-				const audioBlob = new Blob(chunks.current, { type: "audio/webm" })
+				const audioBlob = new Blob(chunks.current, {
+					type: "audio/webm;codecs=opus",
+				})
+
 				const reader = new FileReader()
 				reader.onloadend = async () => {
-					await sendMessage({ audio: reader.result })
+					try {
+						await sendMessage({
+							audio: reader.result,
+							audioDuration: Math.round(audioBlob.size / 500), // Примерная длительность
+						})
+					} catch (error) {
+						toast.error("Ошибка отправки аудио")
+					}
 				}
 				reader.readAsDataURL(audioBlob)
+
 				stream.getTracks().forEach(track => track.stop())
 			}
 
-			recorder.start()
+			recorder.start(250) // Чанки по 250мс
 			setMediaRecorder(recorder)
 			setIsRecording(true)
 		} catch (error) {
 			toast.error("Микрофон недоступен")
+			console.error("Recording error:", error)
 		}
 	}
 
@@ -150,13 +175,21 @@ const ChatContainer = () => {
 							msg.senderId !== authUser._id && "flex-row-reverse"
 						}`}>
 						{msg.audio ? (
-							// 🎤 АУДИО
+							// 🎤 ИСПРАВЛЕННЫЙ АУДИО ПЛЕЕР
 							<div className='w-[230px] p-3 bg-violet-500/30 rounded-lg mb-8'>
 								<audio
 									controls
+									controlsList='nodownload'
 									className='w-full h-12'
-									src={msg.audio}
-								/>
+									preload='metadata'
+									src={msg.audio}>
+									Ваш браузер не поддерживает аудио
+								</audio>
+								{msg.audioDuration && (
+									<p className='text-xs text-gray-400 mt-1 text-center'>
+										{msg.audioDuration}s
+									</p>
+								)}
 							</div>
 						) : msg.image ? (
 							<img
@@ -217,7 +250,7 @@ const ChatContainer = () => {
 								alt='Gallery icon'
 							/>
 						</label>
-						{/* 🎤 МИКРОФОН */}
+						{/* 🎤 МИКРОФОН - ИСПРАВЛЕННЫЙ */}
 						<button
 							type='button'
 							onMouseDown={startRecording}
