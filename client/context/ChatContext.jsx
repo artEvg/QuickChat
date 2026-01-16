@@ -9,8 +9,9 @@ import { useAuth } from "../context/AuthContext.jsx"
 import toast from "react-hot-toast"
 
 export const ChatContext = createContext()
+export const useChat = () => useContext(ChatContext)
 
-export const useChat = () => {
+export default function ChatProvider({ children }) {
 	const context = useContext(ChatContext)
 	if (!context) throw new Error("useChat must be used within ChatProvider")
 	return context
