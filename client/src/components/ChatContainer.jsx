@@ -1,140 +1,167 @@
-import { useContext, useState, useEffect } from "react"
+import { useEffect, useRef, useState } from "react"
 import assets from "../assets/assets.js"
-import { useNavigate } from "react-router-dom"
-import { AuthContext } from "../../context/AuthContext"
-import { ChatContext } from "../../context/ChatContext"
+import { formatMessageTime } from "../lib/utils.js"
+import { useContext } from "react"
+import { ChatContext } from "../../context/ChatContext.jsx"
+import { AuthContext } from "../../context/AuthContext.jsx"
+import toast from "react-hot-toast"
 
-const Sidebar = () => {
-	const {
-		getUsers,
-		users,
-		selectedUser,
-		setSelectedUser,
-		unseenMessages,
-		setUnseenMessages,
-	} = useContext(ChatContext)
-
-	const { logout, onlineUsers, authUser } = useContext(AuthContext)
+const ChatContainer = () => {
+	const { messages, selectedUser, setSelectedUser, sendMessage, getMessages } =
+		useContext(ChatContext)
+	const { authUser, onlineUsers } = useContext(AuthContext)
+	const scrollEnd = useRef()
 
 	const [input, setInput] = useState("")
-	const [showMenu, setShowMenu] = useState(false)
 
-	const navigate = useNavigate()
+	// Отправка сообщения
+	const handleSendMessage = async e => {
+		e.preventDefault()
+		if (input.trim() === "") return null
+		await sendMessage({ text: input.trim() })
+		setInput("")
+	}
 
-	// Фильтруем пользователей: показываем только тех, с кем есть переписка
-	const usersWithChat = users.filter(
-		user => user._id !== authUser?._id // Исключаем самого себя
-	)
+	// Отправка Изображения
+	const handleSendImage = async e => {
+		const file = e.target.files[0]
+		if (!file || !file.type.startsWith("image/")) {
+			toast.error("Выберите Изображение")
+			return
+		}
+		const reader = new FileReader()
 
-	const filteredUsers = input
-		? usersWithChat.filter(user =>
-				user.fullName.toLowerCase().includes(input.toLowerCase())
-		  )
-		: usersWithChat
+		reader.onloadend = async () => {
+			await sendMessage({ image: reader.result })
+			e.target.value = ""
+		}
+		reader.readAsDataURL(file)
+	}
 
 	useEffect(() => {
-		getUsers()
-	}, [onlineUsers])
+		if (selectedUser) {
+			getMessages(selectedUser._id)
+		}
+	}, [selectedUser])
 
-	return (
-		<div
-			className={`bg-[#8185B2]/10 h-full p-5 rounded-r-xl overflow-y-scroll text-white ${
-				selectedUser ? "max-md:hidden" : ""
-			}`}>
-			<div className='pb-5'>
-				<div className='flex justify-between items-center'>
-					<img
-						src={assets.logo}
-						alt='logo image'
-						className='max-w-40 cursor-pointer'
-					/>
-					<div className='relative py-2'>
-						<img
-							src={assets.menu_icon}
-							alt='menu icon'
-							className='max-h-5 cursor-pointer'
-							onClick={() => setShowMenu(prev => !prev)}
-						/>
-						{showMenu && (
-							<div className='absolute top-full right-0 z-20 w-32 p-5 rounded-md bg-[#282142] border border-gray-600 text-gray-100'>
-								<p
-									onClick={() => {
-										navigate("/profile")
-										setShowMenu(false)
-									}}
-									className='cursor-pointer text-sm'>
-									Изменить
-								</p>
-								<hr className='my-2 border-t border-gray-500' />
-								<p
-									onClick={() => {
-										logout()
-										setShowMenu(false)
-									}}
-									className='cursor-pointer text-sm'>
-									Выйти
-								</p>
-							</div>
+	useEffect(() => {
+		if (scrollEnd.current && messages) {
+			scrollEnd.current.scrollIntoView({ behavior: "smooth" })
+		}
+	}, [messages])
+
+	return selectedUser ? (
+		<div className='w-full overflow-scroll relative backdrop-blur-lg'>
+			<div className='flex items-center gap-3 py-3 mx-4 border-b border-stone-500'>
+				<img
+					className='w-8 rounded-full'
+					src={selectedUser.profilePic || assets.avatar_icon}
+					alt='profile image'
+				/>
+				<p className='flex-1 text-lg text-white flex items-center gap-2'>
+					{selectedUser.fullName}
+					{onlineUsers.includes(selectedUser._id) && (
+						<span className='w-2 h-2 rounded-full bg-green-500'></span>
+					)}
+				</p>
+				<img
+					onClick={() => setSelectedUser(null)}
+					className='md:hidden max-w-7'
+					src={assets.arrow_icon}
+					alt='arrow icon'
+				/>
+				<img
+					className='max-md:hidden max-w-5'
+					src={assets.help_icon}
+					alt='help icon'
+				/>
+			</div>
+			<div className='flex flex-col items-center h-[calc(100%-120px)] overflow-y-scroll p-3 pb-6'>
+				{messages.map((msg, index) => (
+					<div
+						key={index}
+						className={`flex w-full items-end gap-2 justify-end ${
+							msg.senderId !== authUser._id && "flex-row-reverse"
+						}`}>
+						{msg.image ? (
+							<img
+								className='w-[230px] border-gray-700 rounded-lg overflow-hidden mb-8'
+								src={msg.image}
+								alt='Image'
+							/>
+						) : (
+							<p
+								className={`p-2 w-[200px] md:text-sm font-light rounded-lg mb-8 break-all bg-violet-500/30 text-white ${
+									msg.senderId !== authUser._id
+										? "rounded-br-none"
+										: "rounded-bl-none"
+								}`}>
+								{msg.text}
+							</p>
 						)}
+						<div className='text-center text-xs'>
+							<img
+								className='w-7 rounded-full'
+								src={
+									msg.senderId === authUser._id
+										? authUser?.profilePic || assets.avatar_icon
+										: selectedUser.profilePic || assets.avatar_icon
+								}
+								alt='profile image'
+							/>
+							<p className='text-gray-500'>
+								{formatMessageTime(msg.createdAt)}
+							</p>
+						</div>
 					</div>
-				</div>
-
-				<div className='bg-[#282142] rounded-full flex items-center gap-2 py-3 px-4 mt-5'>
-					<img
-						src={assets.search_icon}
-						alt='search'
-						className='w-3'
+				))}
+				<div ref={scrollEnd}></div>
+			</div>
+			<div className='absolute bottom-0 left-0 right-0 flex items-center gap-3 p-3'>
+				<div className='flex-1 flex items-center bg-gray-100/12 px-3 rounded-full'>
+					<input
+						onChange={e => setInput(e.target.value)}
+						value={input}
+						onKeyDown={e => (e.key === "Enter" ? handleSendMessage(e) : null)}
+						className='flex-1 text-sm p-3 border-none rounded-lg outline-none text-white placeholder-gray-400'
+						type='text'
+						placeholder='Отправить сообщение'
 					/>
 					<input
-						value={input}
-						onChange={e => setInput(e.target.value)}
-						type='text'
-						className='bg-transparent border-none outline-none text-white text-sm placeholder-[#c8c8c8] flex-1'
-						placeholder='Найти пользователя'
+						onChange={handleSendImage}
+						type='file'
+						id='image'
+						accept='image/png, image/jpeg'
+						hidden
 					/>
+					<label htmlFor='image'>
+						<img
+							className='w-5 mr-2 cursor-pointer'
+							src={assets.gallery_icon}
+							alt='Gallery icon'
+						/>
+					</label>
 				</div>
+				<img
+					onClick={handleSendMessage}
+					className='w-7 cursor-pointer'
+					src={assets.send_button}
+					alt='send button'
+				/>
 			</div>
-			<div className='flex flex-col'>
-				{filteredUsers.length > 0 ? (
-					filteredUsers.map((user, index) => (
-						<div
-							onClick={() => {
-								setSelectedUser(user)
-								setUnseenMessages(prev => ({ ...prev, [user._id]: 0 }))
-							}}
-							key={user._id || index} // Используем _id вместо index
-							className={`relative flex items-center gap-2 p-2 pl-4 rounded cursor-pointer max-sm:text-sm ${
-								selectedUser?._id === user._id ? "bg-[#282142]/50" : ""
-							}`}>
-							<img
-								src={user?.profilePic || assets.avatar_icon}
-								alt='user image'
-								className='w-[35px] aspect-[1/1] rounded-full'
-							/>
-							<div className='flex flex-col leading-5'>
-								<p>{user.fullName}</p>
-								{onlineUsers.includes(user._id) ? (
-									<span className='text-green-400 text-xs'>В сети</span>
-								) : (
-									<span className='text-neutral-400 text-xs'>Нет на месте</span>
-								)}
-							</div>
-							{unseenMessages[user._id] > 0 && (
-								<p className='absolute top-4 right-4 text-xs h5 w-5 flex justify-center items-center rounded-full bg-violet-500/50'>
-									{unseenMessages[user._id]}
-								</p>
-							)}
-						</div>
-					))
-				) : (
-					<div className='flex flex-col items-center justify-center text-gray-400 text-sm py-10'>
-						<p>Нет переписок</p>
-						<p className='mt-1'>Начните новый чат</p>
-					</div>
-				)}
-			</div>
+		</div>
+	) : (
+		<div className='flex flex-col items-center justify-center g2 text-gray-500 bg-white/10 max-md:hidden'>
+			<img
+				className='max-w-16'
+				src={assets.logo_icon}
+				alt='logo icon'
+			/>
+			<p className='text-lg font-medium text-white'>
+				Общайтесь всегда и везде !
+			</p>
 		</div>
 	)
 }
 
-export default Sidebar
+export default ChatContainer

@@ -14,18 +14,23 @@ const Sidebar = () => {
 		setUnseenMessages,
 	} = useContext(ChatContext)
 
-	const { logout, onlineUsers } = useContext(AuthContext)
+	const { logout, onlineUsers, authUser } = useContext(AuthContext)
 
 	const [input, setInput] = useState("")
-	const [showMenu, setShowMenu] = useState(false) // Добавляем состояние для меню
+	const [showMenu, setShowMenu] = useState(false)
 
 	const navigate = useNavigate()
 
+	// Фильтруем пользователей: показываем только тех, с кем есть переписка
+	const usersWithChat = users.filter(
+		user => user._id !== authUser?._id // Исключаем самого себя
+	)
+
 	const filteredUsers = input
-		? users.filter(user =>
+		? usersWithChat.filter(user =>
 				user.fullName.toLowerCase().includes(input.toLowerCase())
 		  )
-		: users
+		: usersWithChat
 
 	useEffect(() => {
 		getUsers()
@@ -48,14 +53,14 @@ const Sidebar = () => {
 							src={assets.menu_icon}
 							alt='menu icon'
 							className='max-h-5 cursor-pointer'
-							onClick={() => setShowMenu(prev => !prev)} // Открываем/закрываем по клику
+							onClick={() => setShowMenu(prev => !prev)}
 						/>
 						{showMenu && (
 							<div className='absolute top-full right-0 z-20 w-32 p-5 rounded-md bg-[#282142] border border-gray-600 text-gray-100'>
 								<p
 									onClick={() => {
 										navigate("/profile")
-										setShowMenu(false) // Закрываем меню после клика
+										setShowMenu(false)
 									}}
 									className='cursor-pointer text-sm'>
 									Изменить
@@ -64,7 +69,7 @@ const Sidebar = () => {
 								<p
 									onClick={() => {
 										logout()
-										setShowMenu(false) // Закрываем меню после клика
+										setShowMenu(false)
 									}}
 									className='cursor-pointer text-sm'>
 									Выйти
@@ -90,14 +95,14 @@ const Sidebar = () => {
 				</div>
 			</div>
 			<div className='flex flex-col'>
-				{filteredUsers.map((user, index) => {
-					return (
+				{filteredUsers.length > 0 ? (
+					filteredUsers.map((user, index) => (
 						<div
 							onClick={() => {
 								setSelectedUser(user)
 								setUnseenMessages(prev => ({ ...prev, [user._id]: 0 }))
 							}}
-							key={index}
+							key={user._id || index} // Используем _id вместо index
 							className={`relative flex items-center gap-2 p-2 pl-4 rounded cursor-pointer max-sm:text-sm ${
 								selectedUser?._id === user._id ? "bg-[#282142]/50" : ""
 							}`}>
@@ -120,8 +125,13 @@ const Sidebar = () => {
 								</p>
 							)}
 						</div>
-					)
-				})}
+					))
+				) : (
+					<div className='flex flex-col items-center justify-center text-gray-400 text-sm py-10'>
+						<p>Нет переписок</p>
+						<p className='mt-1'>Начните новый чат</p>
+					</div>
+				)}
 			</div>
 		</div>
 	)
