@@ -1,13 +1,12 @@
 import React, { useContext, useState, useRef } from "react"
 import { useNavigate } from "react-router-dom"
-import { assets } from "../assets/assets.js"
-import { AppContext } from "../context/AppContext.jsx"
+import assets from "../assets/assets.js"
 import axios from "axios"
 import toast from "react-hot-toast"
 
 const ResetPassword = () => {
 	axios.defaults.withCredentials = true
-	const { backendUrl } = useContext(AppContext)
+	const backendUrl = import.meta.env.VITE_BACKEND_URL
 	const navigate = useNavigate()
 
 	const [email, setEmail] = useState("")
@@ -45,10 +44,9 @@ const ResetPassword = () => {
 	const onSubmitEmail = async e => {
 		e.preventDefault()
 		try {
-			const { data } = await axios.post(
-				backendUrl + "/api/auth/send-reset-otp",
-				{ email }
-			)
+			const { data } = await axios.post(`${backendUrl}/user/send-reset-otp`, {
+				email,
+			})
 			toast.success(data.message)
 			if (data.success) setIsEmailSent(true)
 		} catch (error) {
@@ -66,16 +64,15 @@ const ResetPassword = () => {
 	const onSubmitNewPassword = async e => {
 		e.preventDefault()
 		try {
-			const { data } = await axios.post(
-				backendUrl + "/api/auth/reset-password",
-				{
-					email,
-					otp,
-					newPassword,
-				}
-			)
+			const { data } = await axios.post(`${backendUrl}/user/reset-password`, {
+				email,
+				otp,
+				newPassword,
+			})
 			toast.success(data.message)
-			if (data.success) navigate("/login")
+			if (data.success) {
+				setTimeout(() => navigate("/login"), 1500)
+			}
 		} catch (error) {
 			toast.error(error.response?.data?.message || "Ошибка сброса")
 		}
