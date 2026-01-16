@@ -3,96 +3,122 @@ import axios from "axios"
 import toast from "react-hot-toast"
 import { io } from "socket.io-client"
 
-const backendUrl = import.meta.env.VITE_BACKEND_URL
-axios.defaults.baseURL = backendUrl
+const backendUrl =
+	import.meta.env.VITE_BACKEND_URL ||
+	"https://quick-chat-backend-psi-beryl.vercel.app/api"
+
+// ✅ Создаем AXIOS INSTANCE с правильным baseURL
+const api = axios.create({
+	baseURL: backendUrl,
+	headers: {
+		"Content-Type": "application/json",
+	},
+})
+
+// ✅ Interceptor для автоматического токена
+api.interceptors.request.use(config => {
+	const token = localStorage.getItem("token")
+	if (token) {
+		config.headers.Authorization = `Bearer ${token}`
+	}
+	return config
+})
 
 export const AuthContext = createContext()
+
 export const AuthProvider = ({ children }) => {
 	const [token, setToken] = useState(localStorage.getItem("token"))
 	const [authUser, setAuthUser] = useState(null)
 	const [onlineUsers, setOnlineUsers] = useState([])
 	const [socket, setSocket] = useState(null)
 
-	// Проверка на прохождение авторизации, установка пользовательских данных и подключение сокета
+	// Проверка авторизации
 	const checkAuth = async () => {
 		try {
-			const response = await axios.get("/api/auth/check")
-			const data = response.data
+			const { data } = await api.get("/auth/check")
 			if (data.success) {
 				setAuthUser(data.user)
 				connectSocket(data.user)
 			}
 		} catch (error) {
-			toast.error(error.message)
+			console.log("Auth check failed:", error.response?.data || error.message)
 		}
 	}
 
-	// Функция для авторизации и регистрации пользователей
+	// Логин/Регистрация
 	const login = async (state, credentials) => {
 		try {
-			const { data } = await axios.post(`/api/auth/${state}`, credentials)
+			const { data } = await api.post(`/auth/${state}`, credentials)
 			if (data.success) {
 				setAuthUser(data.userData)
-				connectSocket(data.userData)
-				axios.defaults.headers.common["token"] = data.token
-				setToken(data.token)
 				localStorage.setItem("token", data.token)
+				setToken(data.token)
+				connectSocket(data.userData)
 				toast.success(data.message)
+				return data
 			} else {
 				toast.error(data.message)
 			}
 		} catch (error) {
-			toast.error(error.message)
+			toast.error(error.response?.data?.message || error.message)
 		}
 	}
 
-	// Функция для выхода пользователей из аккаунта
+	// Выход
 	const logout = async () => {
-		localStorage.removeItem("token")
-		setToken(null)
-		setAuthUser(null)
-		setOnlineUsers([])
-		axios.defaults.headers.common["token"] = null
-		toast.success("Успешный выход")
-		socket.disconnect()
+		try {
+			await api.post("/auth/logout")
+		} catch (error) {
+			console.log("Logout error:", error)
+		} finally {
+			localStorage.removeItem("token")
+			setToken(null)
+			setAuthUser(null)
+			setOnlineUsers([])
+			if (socket) socket.disconnect()
+			toast.success("Успешный выход")
+		}
 	}
 
-	// Функция для обновления данных профиля
+	// Обновление профиля
 	const updateProfile = async body => {
 		try {
-			const { data } = await axios.put("/api/auth/update-profile", body)
+			const { data } = await api.put("/auth/update-profile", body)
 			if (data.success) {
 				setAuthUser(data.user)
 				toast.success("Профиль успешно обновлен")
 			}
 		} catch (error) {
-			toast.error(error.message)
+			toast.error(error.response?.data?.message || error.message)
 		}
 	}
 
-	// Подключение сокета и обновления онлайн пользователей
+	// Socket подключение
 	const connectSocket = userData => {
 		if (!userData || socket?.connected) return
-		const newSocket = io(backendUrl, {
-			query: {
-				userId: userData._id,
-			},
+
+		const newSocket = io(backendUrl.replace("/api", ""), {
+			query: { userId: userData._id },
+			transports: ["websocket"],
 		})
-		newSocket.connect()
-		setSocket(newSocket)
+
+		newSocket.on("connect", () => {
+			console.log("Socket connected")
+		})
+
 		newSocket.on("getOnlineUsers", userIds => {
 			setOnlineUsers(userIds)
 		})
+
+		setSocket(newSocket)
 	}
 
 	useEffect(() => {
-		if (token) {
-			axios.defaults.headers.common["token"] = token
-		}
 		checkAuth()
 	}, [])
+
 	const value = {
-		axios,
+		api, // ✅ Передаем api instance вместо axios
 		authUser,
 		onlineUsers,
 		socket,
@@ -100,5 +126,6 @@ export const AuthProvider = ({ children }) => {
 		logout,
 		updateProfile,
 	}
+
 	return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }
