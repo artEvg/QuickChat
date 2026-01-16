@@ -88,10 +88,20 @@ export const login = async (req, res) => {
 	}
 }
 
+export const logout = async (req, res) => {
+	try {
+		res.clearCookie("token")
+		res.json({ success: true, message: "Выход успешен" })
+	} catch (error) {
+		res.json({ success: false, message: error.message })
+	}
+}
+
 // Проверка авторизован ли пользователь
 export const checkAuth = (req, res) => {
 	res.json({ success: true, user: req.user })
 }
+
 
 // Обновление данных профиля
 export const updateProfile = async (req, res) => {
