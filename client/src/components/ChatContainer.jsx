@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState, useCallback } from "react"
 import assets from "../assets/assets.js"
 import { formatMessageTime } from "../lib/utils.js"
-import { useAuth } from "../context/AuthContext.jsx" // ✅ Добавлен
-import { useChat } from "../context/ChatContext.jsx" // ✅ Добавлен
+import { useAuth } from "../../context/AuthContext.jsx"
+import { useChat } from "../../context/ChatContext.jsx"
 import toast from "react-hot-toast"
 
 const ChatContainer = () => {
