@@ -1,149 +1,115 @@
-import { createContext, useEffect, useState } from "react"
+// AuthContext.jsx - ПОЛНАЯ ВЕРСИЯ
+import { createContext, useContext, useEffect, useState, useRef } from "react"
 import axios from "axios"
-import toast from "react-hot-toast"
 import { io } from "socket.io-client"
+import { useNavigate } from "react-router-dom"
 
-const backendUrl =
-	import.meta.env.VITE_BACKEND_URL ||
-	"https://quick-chat-backend-psi-beryl.vercel.app/api"
+const AuthContext = createContext()
 
-// ✅ Создаем AXIOS INSTANCE с правильным baseURL
-const api = axios.create({
-	baseURL: backendUrl,
-	headers: {
-		"Content-Type": "application/json",
-	},
-})
+export const useAuth = () => useContext(AuthContext)
 
-// ✅ Interceptor для автоматического токена
-api.interceptors.request.use(config => {
-	const token = localStorage.getItem("token")
-	if (token) {
-		config.headers.Authorization = `Bearer ${token}`
-	}
-	return config
-})
+export default function AuthContextProvider({ children }) {
+	const [user, setUser] = useState(null)
+	const [loading, setLoading] = useState(true)
+	const socket = useRef()
+	const navigate = useNavigate()
 
-export const AuthContext = createContext()
+	// ✅ ЛОКАЛЬНЫЙ URL ТОЛЬКО
+	const backendUrl =
+		import.meta.env.VITE_BACKEND_URL || "http://localhost:4000/api"
 
-export const AuthProvider = ({ children }) => {
-	const [token, setToken] = useState(localStorage.getItem("token"))
-	const [authUser, setAuthUser] = useState(null)
-	const [onlineUsers, setOnlineUsers] = useState([])
-	const [socket, setSocket] = useState(null)
+	axios.defaults.withCredentials = true
+	axios.defaults.baseURL = backendUrl
 
-	// Проверка авторизации
-	const checkAuth = async () => {
-		try {
-			const { data } = await api.get("/auth/check")
-			if (data.success) {
-				setAuthUser(data.user)
-				connectSocket(data.user)
-			}
-		} catch (error) {
-			console.log("Auth check failed:", error.response?.data || error.message)
+	// ✅ Socket.IO - ТОЛЬКО ЛОКАЛЬНО
+	useEffect(() => {
+		if (!socket.current) {
+			socket.current = io(backendUrl.replace("/api", ""), {
+				withCredentials: true,
+				auth: { userId: user?._id },
+			})
+
+			socket.current.on("connect", () => {
+				console.log("✅ Socket connected:", socket.current.id)
+			})
+
+			socket.current.on("connect_error", error => {
+				console.warn("⚠️ Socket error (fallback to polling):", error.message)
+			})
 		}
-	}
 
-	// Логин/Регистрация
-	const login = async (state, credentials) => {
+		return () => {
+			if (socket.current) {
+				socket.current.disconnect()
+			}
+		}
+	}, [backendUrl])
+
+	const login = async (endpoint, credentials) => {
 		try {
-			const { data } = await api.post(`/auth/${state}`, credentials)
+			const { data } = await axios.post(`/user/${endpoint}`, credentials)
 			if (data.success) {
-				setAuthUser(data.userData)
-				localStorage.setItem("token", data.token)
-				setToken(data.token)
-				connectSocket(data.userData)
+				setUser(data.userData)
+				localStorage.setItem("chat-app-user", JSON.stringify(data.userData))
 				toast.success(data.message)
-				return data
-			} else {
-				toast.error(data.message)
+				navigate("/dashboard")
 			}
 		} catch (error) {
-			toast.error(error.response?.data?.message || error.message)
+			toast.error(error.response?.data?.message || "Ошибка авторизации")
 		}
 	}
 
-	// Выход
 	const logout = async () => {
 		try {
-			await api.post("/auth/logout")
+			await axios.post("/user/logout")
+			setUser(null)
+			localStorage.removeItem("chat-app-user")
+			if (socket.current) socket.current.disconnect()
+			toast.success("Выход выполнен")
+			navigate("/")
 		} catch (error) {
-			console.log("Logout error:", error)
-		} finally {
-			localStorage.removeItem("token")
-			setToken(null)
-			setAuthUser(null)
-			setOnlineUsers([])
-			if (socket) socket.disconnect()
-			toast.success("Успешный выход")
+			console.error("Logout error:", error)
+			// Принудительный выход даже при ошибке
+			setUser(null)
+			localStorage.removeItem("chat-app-user")
+			if (socket.current) socket.current.disconnect()
+			navigate("/")
 		}
 	}
 
-	// Обновление профиля
-	const updateProfile = async body => {
+	const checkAuthStatus = async () => {
 		try {
-			const { data } = await api.put("/auth/update-profile", body)
+			const { data } = await axios.get("/user/check")
 			if (data.success) {
-				setAuthUser(data.user)
-				toast.success("Профиль успешно обновлен")
+				setUser(data.user)
+				localStorage.setItem("chat-app-user", JSON.stringify(data.user))
 			}
 		} catch (error) {
-			toast.error(error.response?.data?.message || error.message)
+			console.log("Not authenticated")
+		} finally {
+			setLoading(false)
 		}
-	}
-
-	// Socket подключение
-	const connectSocket = userData => {
-		if (!userData || socket?.connected) return
-
-		const socketUrl = backendUrl.replace("/api", "")
-		console.log("🔌 Connecting socket to:", socketUrl)
-
-		const newSocket = io(socketUrl, {
-			query: { userId: userData._id },
-			// ✅ КЛЮЧЕВОЕ: polling + websocket (Vercel fallback)
-			transports: ["polling", "websocket"],
-			timeout: 20000,
-			reconnection: true,
-			reconnectionAttempts: 5,
-			reconnectionDelay: 1000,
-			forceNew: true,
-		})
-
-		newSocket.on("connect", () => {
-			console.log("✅ Socket connected:", newSocket.id)
-		})
-
-		newSocket.on("disconnect", reason => {
-			console.log("🔌 Socket disconnected:", reason)
-		})
-
-		newSocket.on("connect_error", error => {
-			console.log("⚠️ Socket error (fallback to polling):", error.message)
-		})
-
-		newSocket.on("getOnlineUsers", userIds => {
-			console.log("👥 Online users:", userIds.length)
-			setOnlineUsers(userIds)
-		})
-
-		setSocket(newSocket)
 	}
 
 	useEffect(() => {
-		checkAuth()
+		const savedUser = localStorage.getItem("chat-app-user")
+		if (savedUser) {
+			setUser(JSON.parse(savedUser))
+		}
+		checkAuthStatus()
 	}, [])
 
-	const value = {
-		api, // ✅ Передаем api instance вместо axios
-		authUser,
-		onlineUsers,
-		socket,
-		login,
-		logout,
-		updateProfile,
-	}
-
-	return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
+	return (
+		<AuthContext.Provider
+			value={{
+				user,
+				login,
+				logout,
+				loading,
+				socket: socket.current,
+				backendUrl,
+			}}>
+			{children}
+		</AuthContext.Provider>
+	)
 }
